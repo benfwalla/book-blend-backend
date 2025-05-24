@@ -459,10 +459,10 @@ def get_all_goodreads_user_books(user_id: str, shelf: str = 'all', return_format
             return all_books
 
 if __name__ == "__main__":
-    # Example: Get books from different shelves
-    USER_ID = "42944663"
 
-    all_books = get_all_goodreads_user_books(USER_ID, shelf='all', return_format='dataframe')
+    GOODREADS_USER_ID = "42944663"
+
+    all_books = get_all_goodreads_user_books(GOODREADS_USER_ID, shelf='all', return_format='dataframe')
     all_books.to_csv("all_books.csv", index=False)
 
     print("All books:")
