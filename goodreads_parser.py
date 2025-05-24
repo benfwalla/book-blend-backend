@@ -180,9 +180,10 @@ def fetch_goodreads_data_as_df(url):
     print(f"Fetching: {url}")
     try:
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0',
+            'cookie': 'ubid-main=134-4882758-0608221; _session_id2=68a44b4822176e6ad8cd03f555e9071e; ccsid=674-4080800-6001320; locale=en; at-main=Atza|IwEBIGAPM--VV4UkJdGeSaO5M3C-dEjuFag_fzajS_mvXF5IzzXQiF23a0SN4kvSI2wTKC1GOOEvG2-c826pTHEmQEdgoA7rgAgJa8mxVygOIBxTienV5tLvb4kKujkJAlI0DXGm5P6oKc2A0NZF5vMViTCTQXR35HhaFQ8lVeQGNh03c9wsHrqOtCNrrgWFHjV_PctlnGor6c6IQ6Jm7rUUG6HubWl2r6F0NQNcBzOYGy1rKGUnaj_Fac1n-YuAeXQx2go'
         }
-        response = requests.get(url, headers=headers, timeout=15)
+        response = requests.get(url, headers=headers, timeout=15, verify=False)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         print(f"Error fetching URL: {e}", file=sys.stderr)
@@ -372,7 +373,7 @@ def get_goodreads_user_books_by_page(user_id: str, page_num: int = 1, shelf: str
         # Fetch books from each shelf
         for single_shelf in shelves:
             # Construct the URL for this shelf
-            url = f"https://www.goodreads.com/review/list/{user_id}?page={page_num}&shelf={single_shelf}"
+            url = f"https://www.goodreads.com/review/list/129990632?utf8=%E2%9C%93&utf8=%E2%9C%93&per_page=100&page={page_num}&shelf={single_shelf}"
             
             # Fetch and process the data
             raw_df = fetch_goodreads_data_as_df(url)
