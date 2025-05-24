@@ -444,7 +444,7 @@ def get_all_goodreads_user_books(user_id: str, shelf: str = 'all', return_format
             else:
                 all_books.extend(page_books.to_dict(orient='records'))
 
-            if len(page_books) < 90:
+            if len(page_books) < 100:
                 break
 
             page_num += 1
