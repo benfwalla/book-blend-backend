@@ -1,10 +1,18 @@
+from dotenv import load_dotenv
+import os
+import sys
+import re
+
 import requests
 from bs4 import BeautifulSoup
-import sys
 import pandas as pd
-import re
 from typing import Union, Dict, List
 import warnings
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+GOODREADS_WEB_COOKIE = os.getenv('GOODREADS_WEB_COOKIE')
 
 warnings.filterwarnings('ignore')
 
@@ -153,7 +161,7 @@ def fetch_goodreads_data_as_df(url):
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0',
-            'cookie': 'ubid-main=134-4882758-0608221; _session_id2=68a44b4822176e6ad8cd03f555e9071e; ccsid=674-4080800-6001320; locale=en; at-main=Atza|IwEBIGAPM--VV4UkJdGeSaO5M3C-dEjuFag_fzajS_mvXF5IzzXQiF23a0SN4kvSI2wTKC1GOOEvG2-c826pTHEmQEdgoA7rgAgJa8mxVygOIBxTienV5tLvb4kKujkJAlI0DXGm5P6oKc2A0NZF5vMViTCTQXR35HhaFQ8lVeQGNh03c9wsHrqOtCNrrgWFHjV_PctlnGor6c6IQ6Jm7rUUG6HubWl2r6F0NQNcBzOYGy1rKGUnaj_Fac1n-YuAeXQx2go'
+            'cookie': GOODREADS_WEB_COOKIE
         }
         response = requests.get(url, headers=headers, timeout=15, verify=False)
         response.raise_for_status()
