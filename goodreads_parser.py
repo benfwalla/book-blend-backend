@@ -3,7 +3,11 @@ from bs4 import BeautifulSoup
 import sys
 import pandas as pd
 import re
-from typing import Union, Dict, List, Any
+from typing import Union, Dict, List
+import warnings
+
+warnings.filterwarnings('ignore')
+
 
 def clean_data(df):
     """Clean and transform the raw DataFrame."""
@@ -25,47 +29,15 @@ def clean_data(df):
         
         # Also handle any remaining _SX/SY patterns that might exist elsewhere in the URL
         cleaned_df['cover'] = cleaned_df['cover'].str.replace(r'_S[XY]\d+_', '', regex=True)
-    
-    # Extract and map ratings
+
     if 'rating' in cleaned_df.columns:
-        # Create mapping from text ratings to numeric values
-        rating_mapping = {
-            'did not like it': 1,
-            'it was ok': 2,
-            'liked it': 3,
-            'really liked it': 4,
-            'it was amazing': 5
-        }
-        
-        # Try to extract text ratings using regex patterns
-        # First, try the pattern from the example code
-        cleaned_df['rating_text'] = cleaned_df['rating'].str.extract(r'(.+?)\'s rating\s*(.*?)$', expand=True)[1].str.strip()
-        
-        # If that doesn't work well, try to extract directly from the staticStars title attribute
-        mask = cleaned_df['rating_text'].isna() | (cleaned_df['rating_text'] == '')
-        if mask.any():
-            # Try to find any of the rating text patterns directly
-            for rating_text in rating_mapping.keys():
-                # Find rows that contain this rating text
-                text_mask = cleaned_df['rating'].str.contains(rating_text, na=False, regex=False)
-                # Update rating_text for these rows if they don't already have a rating
-                cleaned_df.loc[mask & text_mask, 'rating_text'] = rating_text
-                
-        # Map text ratings to numeric values
-        cleaned_df['rating_numeric'] = cleaned_df['rating_text'].map(rating_mapping)
-        
-        # As a fallback, try to extract any numeric ratings directly
-        if 'rating_numeric' not in cleaned_df.columns or cleaned_df['rating_numeric'].isna().all():
-            # Extract numbers like "4.5" from rating strings
-            cleaned_df['rating_numeric'] = cleaned_df['rating'].str.extract(r'(\d+\.\d+)', expand=False)
-            # If no decimal rating found, try to extract just digits
-            mask = cleaned_df['rating_numeric'].isna()
-            cleaned_df.loc[mask, 'rating_numeric'] = \
-                cleaned_df.loc[mask, 'rating'].str.extract(r'(\d+)', expand=False)
-            
-        # Convert to float
-        cleaned_df['rating_numeric'] = pd.to_numeric(cleaned_df['rating_numeric'], errors='coerce')
-    
+        # Extract numeric rating only if it's in brackets like [ 4 of 5 stars ]
+        cleaned_df['rating_numeric'] = (
+            cleaned_df['rating']
+            .str.extract(r'\[\s*(\d) of 5 stars\s*\]', expand=False)
+            .astype(float)
+        )
+
     # Clean ISBN columns
     for isbn_col in ['isbn', 'isbn13', 'asin']:
         if isbn_col in cleaned_df.columns:
@@ -336,7 +308,7 @@ def get_goodreads_user_books_by_page(user_id: str, page_num: int = 1, shelf: str
     Args:
         user_id (str): Goodreads user ID
         page_num (int): Page number to fetch (default: 1)
-        shelf (str): Which shelf to query - 'read', 'currently-reading', 'want-to-read', 'all' (default: 'all')
+        shelf (str): Which shelf to query - 'read', 'currently-reading', 'to-read', 'all' (default: 'all')
         return_format (str): 'dataframe' or 'json' (default: 'dataframe')
         
     Returns:
@@ -345,7 +317,7 @@ def get_goodreads_user_books_by_page(user_id: str, page_num: int = 1, shelf: str
     # If 'all' is specified, fetch books from each shelf and combine them
     if shelf.lower() == 'all':
         # Define the shelves to fetch
-        shelves = ['read', 'currently-reading', 'want-to-read']
+        shelves = ['read', 'currently-reading', 'to-read']
         all_books = []
         
         # Fetch books from each shelf
@@ -407,7 +379,7 @@ def get_all_goodreads_user_books(user_id: str, shelf: str = 'all', return_format
     
     Args:
         user_id (str): Goodreads user ID
-        shelf (str): Which shelf to query - 'read', 'currently-reading', 'want-to-read', 'all' (default: 'all')
+        shelf (str): Which shelf to query - 'read', 'currently-reading', 'to-read', 'all' (default: 'all')
         return_format (str): 'dataframe' or 'json' (default: 'dataframe')
         
     Returns:
@@ -416,14 +388,13 @@ def get_all_goodreads_user_books(user_id: str, shelf: str = 'all', return_format
     # If 'all' is specified, fetch books from each shelf and combine them
     if shelf.lower() == 'all':
         # Define the shelves to fetch
-        shelves = ['read', 'currently-reading', 'want-to-read']
+        shelves = ['read', 'currently-reading', 'to-read']
         all_shelf_books = []
         
         print(f"Fetching ALL shelves for user {user_id}...")
         
         # Fetch books from each shelf
         for single_shelf in shelves:
-            print(f"Processing shelf: {single_shelf}")
             
             # Get all books for this shelf using the existing function
             shelf_books = get_all_goodreads_user_books(user_id, single_shelf, return_format='dataframe')
@@ -452,36 +423,24 @@ def get_all_goodreads_user_books(user_id: str, shelf: str = 'all', return_format
         MAX_EMPTY_PAGES = 1  # Stop after finding this many empty pages
         
         print(f"Fetching all books for user {user_id}, shelf: {shelf}...")
-        
-        while empty_page_count < MAX_EMPTY_PAGES:
-            # Get books for current page
-            page_books = get_goodreads_user_books_by_page(user_id, page_num, shelf, return_format='dataframe')
-            
-            # Check if we got any books
-            if page_books.empty:
-                empty_page_count += 1
-                print(f"Empty page #{page_num} (empty count: {empty_page_count})")
-            else:
-                empty_page_count = 0  # Reset counter when we find books
-                
-                # For dataframe, append to list to concat later
-                if return_format.lower() == 'dataframe':
-                    all_books.append(page_books)
-                # For JSON, extend the list directly
-                else:
-                    page_json = page_books.to_dict(orient='records')
-                    all_books.extend(page_json)
-                    
-                print(f"Page {page_num}: Found {len(page_books)} books")
 
-                # If this page has fewer than 90 books, we've reached the last page
-                # No need to check the next page
-                if len(page_books) < 90:
-                    print(f"Page {page_num} has less than 20 books - this is the last page")
-                    break
+        while True:
+            page_books = get_goodreads_user_books_by_page(user_id, page_num, shelf, return_format='dataframe')
+            print(f"Page {page_num}: Found {len(page_books)} books")
+
+            if page_books.empty:
+                break
+
+            if return_format.lower() == 'dataframe':
+                all_books.append(page_books)
+            else:
+                all_books.extend(page_books.to_dict(orient='records'))
+
+            if len(page_books) < 90:
+                break
 
             page_num += 1
-        
+
         # Combine all books
         if return_format.lower() == 'dataframe':
             if all_books:
