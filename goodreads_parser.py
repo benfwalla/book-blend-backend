@@ -200,155 +200,133 @@ def fetch_goodreads_data_as_df(url):
     # 3. Extract Data with Column Consistency - But with Better Value Extraction
     # First, get the header row to identify all possible columns
     header_row = books_table.find('tr', id='booksHeader')
-    if not header_row:
-        print("Warning: Could not find header row. Using simple extraction.", file=sys.stderr)
-        # Fall back to the old method
-        all_rows = []
-        for row in books_table.find_all('tr'):
-            cells = [cell.get_text(strip=True) for cell in row.find_all(['th', 'td'])]
-            if cells:
-                all_rows.append(cells)
-    else:
-        # Found the header row, use it to drive extraction
-        # Get all header cells (including hidden ones)
-        header_cells = [cell for cell in header_row.find_all('th')]
-        # We want clean header values without any extra content
-        header_values = []
-        for cell in header_cells:
-            # Get the alt attribute which is the clean column name
-            header_name = cell.get('alt', '').strip()
-            if not header_name:
-                # Fall back to the text if alt is not available
-                header_name = cell.get_text(strip=True)
-            header_values.append(header_name)
-        
-        # Add new columns for Goodreads ID and URL
-        header_values.extend(['goodreads_id', 'goodreads_url'])
-        
-        # Get column positions for data extraction
-        positions = []
-        for cell in header_cells:
-            # For each header cell, save its position in the table
-            alt_attr = cell.get('alt', '')
-            positions.append(alt_attr)
-        
-        # Now extract data rows with consistent column alignment
-        all_rows = [header_values]  # Start with header values
-        
-        # Process each data row
-        for row in books_table.find_all('tr', class_='bookalike'):
-            # Extract data cells more carefully
-            row_data = []
-            
-            # Track Goodreads ID and URL for this row
-            book_id = ""
-            book_url = ""
-            
-            # Get all cells regardless of visibility
-            data_cells = row.find_all('td')
-            
-            # First, search for book ID and URL from the title link
-            title_cell = None
-            for i, pos in enumerate(positions):
-                if pos == 'title' and i < len(data_cells):
-                    title_cell = data_cells[i]
-                    break
-                    
-            if title_cell:
-                title_link = title_cell.find('a')
-                if title_link and title_link.has_attr('href'):
-                    href = title_link.get('href', '')
-                    # Extract book ID from URL path
-                    # Format is typically: /book/show/36072.The_7_Habits_of_Highly_Effective_People
-                    book_id_match = re.search(r'/book/show/(\d+)', href)
-                    if book_id_match:
-                        book_id = book_id_match.group(1)
-                        book_url = f"https://www.goodreads.com{href}"
-            
-            # Now process each cell normally
-            # Ensure we have a value for each header column
-            for i, pos in enumerate(positions):
-                if i < len(data_cells):
-                    cell = data_cells[i]
-                    
-                    # Special handling for cover column - extract image URL
-                    if pos == 'cover':
-                        img_tag = cell.find('img')
-                        if img_tag and img_tag.has_attr('src'):
-                            cell_value = img_tag['src']
-                        else:
-                            cell_value = ""
-                    # Special handling for title column - extract title text
-                    elif pos == 'title':
-                        title_link = cell.find('a')
-                        if title_link:
-                            cell_value = title_link.get_text(strip=True)
-                        else:
-                            cell_value = cell.get_text(strip=True)
-                    # Special handling for rating column - try to get the title attribute
-                    elif pos == 'rating':
-                        # Try to extract the rating text from the staticStars span's title attribute
-                        stars_span = cell.find('span', class_='staticStars')
-                        if stars_span and stars_span.has_attr('title'):
-                            cell_value = stars_span['title']
-                        else:
-                            # Fall back to normal text extraction if no title attribute
-                            value_div = cell.find('div', class_='value')
-                            if value_div:
-                                cell_value = value_div.get_text(strip=True)
-                            else:
-                                cell_value = cell.get_text(strip=True)
-                                
-                            # Remove label from value if present
-                            label = cell.find('label')
-                            if label:
-                                label_text = label.get_text(strip=True)
-                                if cell_value.startswith(label_text):
-                                    cell_value = cell_value[len(label_text):].strip()
+
+    # Get all header cells (including hidden ones)
+    header_cells = [cell for cell in header_row.find_all('th')]
+    header_values = []
+    for cell in header_cells:
+        # Get the alt attribute which is the clean column name
+        header_name = cell.get('alt', '').strip()
+        if not header_name:
+            # Fall back to the text if alt is not available
+            header_name = cell.get_text(strip=True)
+        header_values.append(header_name)
+
+    # Add new columns for Goodreads ID and URL
+    header_values.extend(['goodreads_id', 'goodreads_url'])
+
+    # Get column positions for data extraction
+    positions = []
+    for cell in header_cells:
+        # For each header cell, save its position in the table
+        alt_attr = cell.get('alt', '')
+        positions.append(alt_attr)
+
+    # Now extract data rows with consistent column alignment
+    all_rows = [header_values]  # Start with header values
+
+    # Process each data row
+    for row in books_table.find_all('tr', class_='bookalike'):
+        # Extract data cells more carefully
+        row_data = []
+
+        # Track Goodreads ID and URL for this row
+        book_id = ""
+        book_url = ""
+
+        # Get all cells regardless of visibility
+        data_cells = row.find_all('td')
+
+        # First, search for book ID and URL from the title link
+        title_cell = None
+        for i, pos in enumerate(positions):
+            if pos == 'title' and i < len(data_cells):
+                title_cell = data_cells[i]
+                break
+
+        if title_cell:
+            title_link = title_cell.find('a')
+            if title_link and title_link.has_attr('href'):
+                href = title_link.get('href', '')
+                # Extract book ID from URL path
+                # Format is typically: /book/show/36072.The_7_Habits_of_Highly_Effective_People
+                book_id_match = re.search(r'/book/show/(\d+)', href)
+                if book_id_match:
+                    book_id = book_id_match.group(1)
+                    book_url = f"https://www.goodreads.com{href}"
+
+        # Now process each cell normally
+        # Ensure we have a value for each header column
+        for i, pos in enumerate(positions):
+            if i < len(data_cells):
+                cell = data_cells[i]
+
+                # Special handling for cover column - extract image URL
+                if pos == 'cover':
+                    img_tag = cell.find('img')
+                    if img_tag and img_tag.has_attr('src'):
+                        cell_value = img_tag['src']
                     else:
-                        # For other columns, extract only the value div content, not the label
+                        cell_value = ""
+                # Special handling for title column - extract title text
+                elif pos == 'title':
+                    title_link = cell.find('a')
+                    if title_link:
+                        cell_value = title_link.get_text(strip=True)
+                    else:
+                        cell_value = cell.get_text(strip=True)
+                # Special handling for rating column - try to get the title attribute
+                elif pos == 'rating':
+                    # Try to extract the rating text from the staticStars span's title attribute
+                    stars_span = cell.find('span', class_='staticStars')
+                    if stars_span and stars_span.has_attr('title'):
+                        cell_value = stars_span['title']
+                    else:
+                        # Fall back to normal text extraction if no title attribute
                         value_div = cell.find('div', class_='value')
                         if value_div:
-                            # Use the value div's content
                             cell_value = value_div.get_text(strip=True)
                         else:
-                            # Fall back to the cell's text if no value div
                             cell_value = cell.get_text(strip=True)
-                            
-                        # If the cell has a label, try to remove it from the value
+
+                        # Remove label from value if present
                         label = cell.find('label')
                         if label:
                             label_text = label.get_text(strip=True)
-                            # Only remove if the label text is at the beginning of the value
                             if cell_value.startswith(label_text):
                                 cell_value = cell_value[len(label_text):].strip()
-                    
-                    row_data.append(cell_value)
                 else:
-                    # If cell doesn't exist, add an empty value
-                    row_data.append("")
-            
-            # Add Goodreads ID and URL as the last columns
-            row_data.append(book_id)
-            row_data.append(book_url)
-            
-            if row_data:  # Only add if we got some data
-                all_rows.append(row_data)
+                    # For other columns, extract only the value div content, not the label
+                    value_div = cell.find('div', class_='value')
+                    if value_div:
+                        # Use the value div's content
+                        cell_value = value_div.get_text(strip=True)
+                    else:
+                        # Fall back to the cell's text if no value div
+                        cell_value = cell.get_text(strip=True)
 
-    # 4. Create DataFrame
-    try:
-        df = pd.DataFrame(all_rows[1:], columns=all_rows[0])
-    except Exception as e:
-        print(f"Error creating DataFrame: {e}", file=sys.stderr)
-        # Fallback: create without headers if column mismatch
-        try:
-            print("Trying fallback: Creating DataFrame without headers...", file=sys.stderr)
-            df = pd.DataFrame(all_rows)
-            print("Success: Created DataFrame without explicit headers", file=sys.stderr)
-        except Exception as final_e:
-            print(f"Fatal error: {final_e}", file=sys.stderr)
-            return None
-    
+                    # If the cell has a label, try to remove it from the value
+                    label = cell.find('label')
+                    if label:
+                        label_text = label.get_text(strip=True)
+                        # Only remove if the label text is at the beginning of the value
+                        if cell_value.startswith(label_text):
+                            cell_value = cell_value[len(label_text):].strip()
+
+                row_data.append(cell_value)
+            else:
+                # If cell doesn't exist, add an empty value
+                row_data.append("")
+
+        # Add Goodreads ID and URL as the last columns
+        row_data.append(book_id)
+        row_data.append(book_url)
+
+        if row_data:  # Only add if we got some data
+            all_rows.append(row_data)
+
+    df = pd.DataFrame(all_rows[1:], columns=all_rows[0])
+
     return df
 
 def get_goodreads_user_books_by_page(user_id: str, page_num: int = 1, shelf: str = 'all', return_format: str = 'dataframe') -> Union[pd.DataFrame, Dict]:
@@ -382,13 +360,8 @@ def get_goodreads_user_books_by_page(user_id: str, page_num: int = 1, shelf: str
             if raw_df is not None and not raw_df.empty:
                 # Add shelf information 
                 raw_df['shelf'] = single_shelf
-                
-                # Clean the data
                 clean_df = clean_data(raw_df)
-                
-                # Add to our collection
                 all_books.append(clean_df)
-                
                 print(f"Found {len(clean_df)} books on shelf '{single_shelf}' (page {page_num})")
         
         # Combine all books
@@ -500,14 +473,13 @@ def get_all_goodreads_user_books(user_id: str, shelf: str = 'all', return_format
                     all_books.extend(page_json)
                     
                 print(f"Page {page_num}: Found {len(page_books)} books")
-                
-                # If this page has fewer than 20 books, we've reached the last page
+
+                # If this page has fewer than 90 books, we've reached the last page
                 # No need to check the next page
-                if len(page_books) < 20:
+                if len(page_books) < 90:
                     print(f"Page {page_num} has less than 20 books - this is the last page")
                     break
-            
-            # Go to next page
+
             page_num += 1
         
         # Combine all books
@@ -516,7 +488,7 @@ def get_all_goodreads_user_books(user_id: str, shelf: str = 'all', return_format
                 return pd.concat(all_books, ignore_index=True)
             else:
                 return pd.DataFrame()
-        else:  # JSON format
+        else:
             return all_books
 
 if __name__ == "__main__":
