@@ -1,3 +1,4 @@
+import math
 from dotenv import load_dotenv
 import os
 import sys
@@ -13,6 +14,21 @@ load_dotenv()
 GOODREADS_WEB_COOKIE = os.getenv('GOODREADS_WEB_COOKIE')
 
 warnings.filterwarnings('ignore')
+
+
+def safe_convert_nan_inf(df: pd.DataFrame) -> pd.DataFrame:
+    def clean_value(x):
+        try:
+            if isinstance(x, float) and (math.isnan(x) or math.isinf(x)):
+                return None
+        except:
+            pass
+        return x
+
+    df = df.replace([float('inf'), float('-inf')], None)
+    df = df.where(pd.notnull(df), None)
+    df = df.applymap(clean_value)
+    return df
 
 
 def clean_data(df):
@@ -329,7 +345,7 @@ def get_goodreads_user_books_by_page(user_id: str, page_num: int = 1, shelf: str
         # Fetch books from each shelf
         for single_shelf in shelves:
             # Construct the URL for this shelf
-            url = f"https://www.goodreads.com/review/list/129990632?utf8=%E2%9C%93&utf8=%E2%9C%93&per_page=100&page={page_num}&shelf={single_shelf}"
+            url = f"https://www.goodreads.com/review/list/{user_id}?utf8=%E2%9C%93&utf8=%E2%9C%93&per_page=100&page={page_num}&shelf={single_shelf}"
             
             # Fetch and process the data
             raw_df = fetch_goodreads_data_as_df(url)
@@ -357,8 +373,8 @@ def get_goodreads_user_books_by_page(user_id: str, page_num: int = 1, shelf: str
     # For specific shelves, just fetch that shelf
     else:
         # Construct the URL for this user's page
-        url = f"https://www.goodreads.com/review/list/{user_id}?page={page_num}&shelf={shelf}"
-        
+        url = f"https://www.goodreads.com/review/list/{user_id}?utf8=%E2%9C%93&utf8=%E2%9C%93&per_page=100&page={page_num}&shelf={shelf}"
+
         # Fetch and process the data
         raw_df = fetch_goodreads_data_as_df(url)
         
@@ -448,7 +464,9 @@ def get_all_goodreads_user_books(user_id: str, shelf: str = 'all', return_format
     
     # Return in the requested format
     if return_format == 'json':
-        return combined_df.to_dict(orient='records')
+        df_clean = safe_convert_nan_inf(combined_df)
+        return df_clean.to_dict(orient="records")
+
     return combined_df
 
 if __name__ == "__main__":
@@ -458,5 +476,4 @@ if __name__ == "__main__":
     all_books = get_all_goodreads_user_books(GOODREADS_USER_ID, shelf='all', return_format='json')
     #all_books.to_csv("all_books.csv", index=False)
 
-    print("All books:")
     print(all_books)
