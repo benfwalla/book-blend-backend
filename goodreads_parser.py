@@ -2,14 +2,12 @@ from dotenv import load_dotenv
 import os
 import sys
 import re
+import warnings
 
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 from typing import Union, Dict, List
-import warnings
-from dotenv import load_dotenv
-import os
 
 load_dotenv()
 GOODREADS_WEB_COOKIE = os.getenv('GOODREADS_WEB_COOKIE')
