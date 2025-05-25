@@ -391,79 +391,74 @@ def get_all_goodreads_user_books(user_id: str, shelf: str = 'all', return_format
         return_format (str): 'dataframe' or 'json' (default: 'dataframe')
         
     Returns:
-        Union[pd.DataFrame, List[Dict]]: All user's books in the requested format
+        Union[pd.DataFrame, List[Dict]]: All user's books in the requested format.
+            Returns empty DataFrame if return_format is 'dataframe', empty list if 'json'.
     """
-    # If 'all' is specified, fetch books from each shelf and combine them
-    if shelf.lower() == 'all':
-        # Define the shelves to fetch
-        shelves = ['read', 'currently-reading', 'to-read']
-        all_shelf_books = []
-        
-        print(f"Fetching ALL shelves for user {user_id}...")
-        
-        # Fetch books from each shelf
-        for single_shelf in shelves:
-            
-            # Get all books for this shelf using the existing function
-            shelf_books = get_all_goodreads_user_books(user_id, single_shelf, return_format='dataframe')
-            
-            if not shelf_books.empty:
-                all_shelf_books.append(shelf_books)
-                print(f"Found {len(shelf_books)} total books on shelf '{single_shelf}'")
-        
-        # Combine all books
-        if all_shelf_books:
-            combined_df = pd.concat(all_shelf_books, ignore_index=True)
-            
-            # Return in requested format
-            if return_format.lower() == 'json':
-                return combined_df.to_dict(orient='records')
-            else:
-                return combined_df
-        else:
-            return pd.DataFrame() if return_format.lower() == 'dataframe' else []
+    # Validate return format
+    return_format = return_format.lower()
+    if return_format not in ('dataframe', 'json'):
+        raise ValueError("return_format must be either 'dataframe' or 'json'")
     
-    # For specific shelves, perform normal pagination for that shelf
-    else:
-        all_books = []
+    # Convert shelf to lowercase for case-insensitive comparison
+    shelf = shelf.lower()
+    
+    # Get the list of shelves to process
+    shelves = ['read', 'currently-reading', 'to-read'] if shelf == 'all' else [shelf]
+    
+    all_books = []
+    
+    # Process each shelf
+    for current_shelf in shelves:
         page_num = 1
-        empty_page_count = 0
-        MAX_EMPTY_PAGES = 1  # Stop after finding this many empty pages
+        print(f"Fetching books for user {user_id}, shelf: {current_shelf}...")
         
-        print(f"Fetching all books for user {user_id}, shelf: {shelf}...")
-
         while True:
-            page_books = get_goodreads_user_books_by_page(user_id, page_num, shelf, return_format='dataframe')
-            print(f"Page {page_num}: Found {len(page_books)} books")
-
+            # Get a page of books
+            page_books = get_goodreads_user_books_by_page(
+                user_id=user_id,
+                page_num=page_num,
+                shelf=current_shelf,
+                return_format='dataframe'  # Always get as DataFrame for consistent processing
+            )
+            
+            # Stop if we got an empty page
             if page_books.empty:
+                print(f"No more books found on page {page_num}")
                 break
-
-            if return_format.lower() == 'dataframe':
-                all_books.append(page_books)
-            else:
-                all_books.extend(page_books.to_dict(orient='records'))
-
+                
+            print(f"Page {page_num}: Found {len(page_books)} books")
+            
+            # Add to our collection
+            all_books.append(page_books)
+            
+            # Stop if we got fewer books than the maximum per page (100)
             if len(page_books) < 100:
                 break
-
+                
             page_num += 1
-
-        # Combine all books
-        if return_format.lower() == 'dataframe':
-            if all_books:
-                return pd.concat(all_books, ignore_index=True)
-            else:
-                return pd.DataFrame()
-        else:
-            return all_books
+    
+    # Handle empty results
+    if not all_books:
+        return [] if return_format == 'json' else pd.DataFrame()
+    
+    # Combine all books into a single DataFrame
+    combined_df = pd.concat(all_books, ignore_index=True)
+    
+    # Remove any duplicate books that might appear in multiple shelves
+    if not combined_df.empty and 'book_id' in combined_df.columns:
+        combined_df = combined_df.drop_duplicates(subset=['book_id', 'shelf'])
+    
+    # Return in the requested format
+    if return_format == 'json':
+        return combined_df.to_dict(orient='records')
+    return combined_df
 
 if __name__ == "__main__":
 
     GOODREADS_USER_ID = "42944663"
 
-    all_books = get_all_goodreads_user_books(GOODREADS_USER_ID, shelf='all', return_format='dataframe')
-    all_books.to_csv("all_books.csv", index=False)
+    all_books = get_all_goodreads_user_books(GOODREADS_USER_ID, shelf='all', return_format='json')
+    #all_books.to_csv("all_books.csv", index=False)
 
     print("All books:")
     print(all_books)
