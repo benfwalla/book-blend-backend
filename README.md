@@ -13,7 +13,7 @@ curl --location 'https://book-blend-backend.onrender.com/books?user_id=42944663&
 `user_id`: A Goodreads user id. It can be found by going to your
 profile and identifying the string of number in the URL:
 
-<img alt="goodreads_id.png" src="goodreads_id.png" width="600"/>
+![goodreads_id.png](goodreads_id.png)
 
 `shelf`: The Goodreads shelf you'd like retrieved. Could be one of
 `all`, `to-read`, `currently-reading`, `read`, or a custom shelf
