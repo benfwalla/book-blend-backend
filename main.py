@@ -49,7 +49,7 @@ def get_friends(user_id: str):
 @app.get("/blend")
 def get_blend(user_id1: str, user_id2: str):
     try:
-        # Get possibly dirty list of dicts
+        # Get enhanced blend data with metrics
         raw_data = fetch_two_users_books(user_id1=user_id1, user_id2=user_id2, shelf='all')
 
         # Sanitize the data structure recursively
