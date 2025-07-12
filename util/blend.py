@@ -1,8 +1,32 @@
 import concurrent.futures
 import pandas as pd
 import math
+import numpy as np
 from collections import Counter
 from util.rss_feed_books import fetch_users_books
+
+def _make_json_serializable(obj):
+    """
+    Convert NumPy types to standard Python types for JSON serialization
+    
+    Args:
+        obj: Any object that might contain NumPy types
+        
+    Returns:
+        Object with NumPy types converted to standard Python types
+    """
+    if isinstance(obj, (np.integer, np.int64)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float64)):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {k: _make_json_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_make_json_serializable(i) for i in obj]
+    else:
+        return obj
 
 def fetch_two_users_books(user_id1, user_id2, shelf="all"):
     """
@@ -55,6 +79,9 @@ def fetch_two_users_books(user_id1, user_id2, shelf="all"):
         "common_books": common_books
     }
     
+    # Convert NumPy types to Python native types for JSON serialization
+    combined_results = _make_json_serializable(combined_results)
+    
     return combined_results
 
 def calculate_blend_metrics(df1, df2):
@@ -71,16 +98,16 @@ def calculate_blend_metrics(df1, df2):
     metrics = {}
     
     # Basic count metrics
-    metrics["user1_book_count"] = len(df1)
-    metrics["user2_book_count"] = len(df2)
+    metrics["user1_book_count"] = int(len(df1))
+    metrics["user2_book_count"] = int(len(df2))
     
     # Calculate total pages read (ignoring None values)
-    metrics["user1_pages_read"] = df1["num_pages"].dropna().sum()
-    metrics["user2_pages_read"] = df2["num_pages"].dropna().sum()
+    metrics["user1_pages_read"] = float(df1["num_pages"].dropna().sum())
+    metrics["user2_pages_read"] = float(df2["num_pages"].dropna().sum())
     
     # Average rating comparison
-    metrics["user1_avg_rating"] = df1["user_rating"].dropna().mean()
-    metrics["user2_avg_rating"] = df2["user_rating"].dropna().mean()
+    metrics["user1_avg_rating"] = float(df1["user_rating"].dropna().mean()) if not df1["user_rating"].dropna().empty else None
+    metrics["user2_avg_rating"] = float(df2["user_rating"].dropna().mean()) if not df2["user_rating"].dropna().empty else None
     
     # Extract genres/shelves
     user1_shelves = " ".join([s for s in df1["user_shelves"] if isinstance(s, str)])
@@ -103,7 +130,7 @@ def calculate_blend_metrics(df1, df2):
         if not df1["read_at"].dropna().empty and not df1["date_added"].dropna().empty:
             df1_with_dates = df1.dropna(subset=["read_at", "date_added"])
             df1_with_dates["read_duration"] = pd.to_datetime(df1_with_dates["read_at"]) - pd.to_datetime(df1_with_dates["date_added"])
-            metrics["user1_avg_reading_days"] = df1_with_dates["read_duration"].dt.days.mean()
+            metrics["user1_avg_reading_days"] = float(df1_with_dates["read_duration"].dt.days.mean())
     except Exception:
         metrics["user1_avg_reading_days"] = None
     
@@ -111,7 +138,7 @@ def calculate_blend_metrics(df1, df2):
         if not df2["read_at"].dropna().empty and not df2["date_added"].dropna().empty:
             df2_with_dates = df2.dropna(subset=["read_at", "date_added"])
             df2_with_dates["read_duration"] = pd.to_datetime(df2_with_dates["read_at"]) - pd.to_datetime(df2_with_dates["date_added"])
-            metrics["user2_avg_reading_days"] = df2_with_dates["read_duration"].dt.days.mean()
+            metrics["user2_avg_reading_days"] = float(df2_with_dates["read_duration"].dt.days.mean())
     except Exception:
         metrics["user2_avg_reading_days"] = None
     
@@ -123,8 +150,8 @@ def calculate_blend_metrics(df1, df2):
     metrics["common_authors"] = list(common_authors)
     
     # Publication year preferences
-    metrics["user1_avg_pub_year"] = df1["book_published"].dropna().mean()
-    metrics["user2_avg_pub_year"] = df2["book_published"].dropna().mean()
+    metrics["user1_avg_pub_year"] = float(df1["book_published"].dropna().mean()) if not df1["book_published"].dropna().empty else None
+    metrics["user2_avg_pub_year"] = float(df2["book_published"].dropna().mean()) if not df2["book_published"].dropna().empty else None
     
     # Calculate a blend score (0-100)
     blend_score = calculate_blend_score(df1, df2, common_books_count, common_authors, common_shelves)
