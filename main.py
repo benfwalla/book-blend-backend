@@ -32,7 +32,7 @@ def get_books(user_id: str, shelf: str = "all"):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-@app.get("/friends")
+@app.get("/user")
 def get_friends(user_id: str):
     try:
         # Get list of friends for the user
