@@ -2,6 +2,7 @@ import math
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 from goodreads_parser import get_all_goodreads_user_books
+from rss_feed_books import fetch_all_goodreads
 
 app = FastAPI(title="BookBlend API")
 
@@ -18,7 +19,7 @@ def read_root():
 def get_books(user_id: str, shelf: str = "all"):
     try:
         # Get possibly dirty list of dicts
-        raw_data = get_all_goodreads_user_books(user_id=user_id, shelf=shelf, return_format='json')
+        raw_data = fetch_all_goodreads(user_id=user_id, shelf=shelf, return_type='json')
 
         # Sanitize dict values
         sanitized = [
