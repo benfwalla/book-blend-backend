@@ -45,12 +45,23 @@ def get_friends(user_id: str):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/blend")
-def get_blend(user_id1: str, user_id2: str, shelf: str = "all"):
+def get_blend(user_id1: str, user_id2: str):
     try:
         # Get possibly dirty list of dicts
-        raw_data = fetch_two_users_books(user_id1=user_id1, user_id2=user_id2, shelf=shelf)
+        raw_data = fetch_two_users_books(user_id1=user_id1, user_id2=user_id2, shelf='all')
 
-        return JSONResponse(content=raw_data)
+        # Sanitize the data structure recursively
+        def sanitize_nested(obj):
+            if isinstance(obj, dict):
+                return {k: sanitize_nested(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [sanitize_nested(item) for item in obj]
+            else:
+                return sanitize(obj)
+                
+        sanitized_data = sanitize_nested(raw_data)
+        
+        return JSONResponse(content=sanitized_data)
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
