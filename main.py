@@ -38,13 +38,7 @@ def get_friends(user_id: str):
         # Get list of friends for the user
         raw_data = get_goodreads_user_info(user_id=user_id)
 
-        # Sanitize dict values
-        sanitized = [
-            {k: sanitize(v) for k, v in friend.items()}
-            for friend in raw_data
-        ]
-
-        return JSONResponse(content=sanitized)
+        return JSONResponse(content=raw_data)
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})

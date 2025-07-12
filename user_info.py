@@ -15,10 +15,10 @@ def get_goodreads_user_info(user_id):
     
     # Extract user information from the meta tags
     user_info = {
-        "id": user_id,
-        "profile_url": user_url,
         "name": "",
         "image_url": "",
+        "id": user_id,
+        "profile_url": user_url,
         "book_count": ""
     }
     
@@ -30,7 +30,7 @@ def get_goodreads_user_info(user_id):
     # Get image from og:image
     og_image = soup.find("meta", property="og:image")
     if og_image:
-        user_info["image"] = og_image.get("content", "")
+        user_info["image_url"] = og_image.get("content", "")
     
     # Get book count from og:description
     og_description = soup.find("meta", property="og:description")
