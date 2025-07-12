@@ -5,6 +5,8 @@ from util.rss_feed_books import fetch_users_books
 from util.user_info import get_goodreads_user_info
 from util.blend import fetch_two_users_books
 
+# Local execution
+# uvicorn main:app --reload
 app = FastAPI(title="BookBlend API")
 
 def sanitize(obj):
