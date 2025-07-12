@@ -1,7 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
 
-def get_goodreads_connections(user_url):
+def get_goodreads_friends(user_id):
+    user_url = f"https://www.goodreads.com/user/show/{user_id}"
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
@@ -55,5 +56,5 @@ def get_goodreads_connections(user_url):
 
 if __name__ == "__main__":
     # Example usage
-    url = "https://www.goodreads.com/user/show/42944663-ben-wallace"
-    print(get_goodreads_connections(url))
+    user_id = "42944663"
+    print(get_goodreads_friends(user_id))
