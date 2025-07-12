@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from rss_feed_books import fetch_all_goodreads
-from user_info import get_goodreads_user_info
+from util.rss_feed_books import fetch_all_goodreads
+from util.user_info import get_goodreads_user_info
 from mangum import Mangum
 import math
 
