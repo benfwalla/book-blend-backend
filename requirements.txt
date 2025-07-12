@@ -4,4 +4,3 @@ pandas
 python-dotenv
 uvicorn[standard]
 fastapi
-mangum
