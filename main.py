@@ -2,7 +2,7 @@ import math
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
 from rss_feed_books import fetch_all_goodreads
-from friends import get_goodreads_friends
+from user_info import get_goodreads_user_info
 
 app = FastAPI(title="BookBlend API")
 
@@ -36,7 +36,7 @@ def get_books(user_id: str, shelf: str = "all"):
 def get_friends(user_id: str):
     try:
         # Get list of friends for the user
-        raw_data = get_goodreads_friends(user_id=user_id)
+        raw_data = get_goodreads_user_info(user_id=user_id)
 
         # Sanitize dict values
         sanitized = [

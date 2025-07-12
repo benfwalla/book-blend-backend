@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 
-def get_goodreads_friends(user_id):
+def get_goodreads_user_info(user_id):
     user_url = f"https://www.goodreads.com/user/show/{user_id}"
     headers = {
         "User-Agent": "Mozilla/5.0"
@@ -12,7 +12,35 @@ def get_goodreads_friends(user_id):
 
     soup = BeautifulSoup(response.text, "html.parser")
     base_url = "https://www.goodreads.com"
+    
+    # Extract user information from the meta tags
+    user_info = {
+        "id": user_id,
+        "profile_url": user_url,
+        "name": "",
+        "image_url": "",
+        "book_count": ""
+    }
+    
+    # Get name from og:title
+    og_title = soup.find("meta", property="og:title")
+    if og_title:
+        user_info["name"] = og_title.get("content", "")
+    
+    # Get image from og:image
+    og_image = soup.find("meta", property="og:image")
+    if og_image:
+        user_info["image"] = og_image.get("content", "")
+    
+    # Get book count from og:description
+    og_description = soup.find("meta", property="og:description")
+    if og_description:
+        description = og_description.get("content", "")
+        if " has " in description and " books on Goodreads" in description:
+            book_count_part = description.split(" has ")[1].split(" books on Goodreads")[0]
+            user_info["book_count"] = book_count_part
 
+    # Parse friends
     friends = []
 
     # Parse friends
@@ -39,7 +67,7 @@ def get_goodreads_friends(user_id):
 
         friends.append({
             "name": name,
-            "image": img_tag["src"],
+            "image_url": img_tag["src"],
             "id": friend_user_id,
             "profile_url": base_url + profile_path,
             "book_count": book_count
@@ -58,14 +86,19 @@ def get_goodreads_friends(user_id):
 
         friends.append({
             "name": title.strip(),
-            "image": img_tag["src"],
+            "image_url": img_tag["src"],
             "id": followed_user_id,
             "profile_url": base_url + profile_path,
             "book_count": ""
         })
 
-    return friends
+    return {
+        "user": user_info,
+        "friends": friends
+    }
+
 
 if __name__ == "__main__":
     user_id = "42944663"
-    print(get_goodreads_friends(user_id))
+    result = get_goodreads_user_info(user_id)
+    print(result)
