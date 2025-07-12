@@ -25,16 +25,27 @@ def get_goodreads_friends(user_id):
             continue
 
         profile_path = a_tag["href"]
-        user_id = profile_path.split("/")[-1].split("-")[0]
+        friend_user_id = profile_path.split("/")[-1].split("-")[0]
+        name = name_tag.text.strip()
+
+        # Extract book count
+        count_container = div.select_one(".left")
+        book_count = ""
+        if count_container:
+            text_parts = list(count_container.stripped_strings)
+            for part in text_parts:
+                if "books" in part:
+                    book_count = part.replace(" books", "").strip()
 
         friends.append({
-            "name": name_tag.text.strip(),
+            "name": name,
             "image": img_tag["src"],
-            "id": user_id,
-            "profile_url": base_url + profile_path
+            "id": friend_user_id,
+            "profile_url": base_url + profile_path,
+            "book_count": book_count
         })
 
-    # Parse people you follow
+    # Parse followed users (no book count)
     for a in soup.select("div.bigBoxBody div.bigBoxContent a.leftAlignedImage"):
         profile_path = a.get("href")
         title = a.get("title")
@@ -43,18 +54,18 @@ def get_goodreads_friends(user_id):
         if not profile_path or not title or not img_tag:
             continue
 
-        user_id = profile_path.split("/")[-1].split("-")[0]
+        followed_user_id = profile_path.split("/")[-1].split("-")[0]
 
         friends.append({
             "name": title.strip(),
             "image": img_tag["src"],
-            "id": user_id,
-            "profile_url": base_url + profile_path
+            "id": followed_user_id,
+            "profile_url": base_url + profile_path,
+            "book_count": ""
         })
 
     return friends
 
 if __name__ == "__main__":
-    # Example usage
     user_id = "42944663"
     print(get_goodreads_friends(user_id))
