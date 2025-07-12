@@ -1,7 +1,6 @@
 import math
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
-from goodreads_parser import get_all_goodreads_user_books
 from rss_feed_books import fetch_all_goodreads
 
 app = FastAPI(title="BookBlend API")
