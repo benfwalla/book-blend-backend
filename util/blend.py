@@ -1,7 +1,7 @@
 import concurrent.futures
-from rss_feed_books import fetch_all_goodreads
+from util.rss_feed_books import fetch_users_books
 
-def fetch_goodreads_parallel(user_id1, user_id2, shelf="all"):
+def fetch_two_users_books(user_id1, user_id2, shelf="all"):
     """
     Fetch Goodreads shelves for two users in parallel and return a combined JSON output
     
@@ -17,7 +17,7 @@ def fetch_goodreads_parallel(user_id1, user_id2, shelf="all"):
     def fetch_user_books(user_id):
         return {
             "user_id": user_id,
-            "books": fetch_all_goodreads(user_id, shelf=shelf, return_type="json")
+            "books": fetch_users_books(user_id, shelf=shelf, return_type="json")
         }
     
     # Use ThreadPoolExecutor to run the fetches in parallel
@@ -40,5 +40,5 @@ def fetch_goodreads_parallel(user_id1, user_id2, shelf="all"):
 if __name__ == "__main__":
     user_id1 = "42944663"
     user_id2 = "48799880"
-    combined_results = fetch_goodreads_parallel(user_id1, user_id2)
+    combined_results = fetch_two_users_books(user_id1, user_id2)
     print(combined_results)

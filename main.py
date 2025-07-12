@@ -1,8 +1,9 @@
 import math
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from util.rss_feed_books import fetch_all_goodreads
+from util.rss_feed_books import fetch_users_books
 from util.user_info import get_goodreads_user_info
+from util.blend import fetch_two_users_books
 
 app = FastAPI(title="BookBlend API")
 
@@ -19,7 +20,7 @@ def read_root():
 def get_books(user_id: str, shelf: str = "all"):
     try:
         # Get possibly dirty list of dicts
-        raw_data = fetch_all_goodreads(user_id=user_id, shelf=shelf, return_type='json')
+        raw_data = fetch_users_books(user_id=user_id, shelf=shelf, return_type='json')
 
         # Sanitize dict values
         sanitized = [
@@ -37,6 +38,17 @@ def get_friends(user_id: str):
     try:
         # Get list of friends for the user
         raw_data = get_goodreads_user_info(user_id=user_id)
+
+        return JSONResponse(content=raw_data)
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/blend")
+def get_blend(user_id1: str, user_id2: str, shelf: str = "all"):
+    try:
+        # Get possibly dirty list of dicts
+        raw_data = fetch_two_users_books(user_id1=user_id1, user_id2=user_id2, shelf=shelf)
 
         return JSONResponse(content=raw_data)
 

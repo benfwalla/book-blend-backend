@@ -68,7 +68,7 @@ def to_date(rss_datetime):
 
 
 # Auto-paginate and concatenate all results
-def fetch_all_goodreads(user_id, shelf="all", return_type="df"):
+def fetch_users_books(user_id, shelf="all", return_type="df"):
     all_dfs = []
     page = 1
 
@@ -106,5 +106,5 @@ def fetch_all_goodreads(user_id, shelf="all", return_type="df"):
 if __name__ == "__main__":
 
     # Usage
-    df_all = fetch_all_goodreads("42944663", "all", "dataframe")
+    df_all = fetch_users_books("42944663", "all", "dataframe")
     print(df_all)
