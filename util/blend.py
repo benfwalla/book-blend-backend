@@ -87,12 +87,128 @@ def calculate_blend_metrics(df1, df2):
     metrics["common_read_books_count"] = common_read_books_count
     
     # Publication year preferences - use read shelf
-    metrics["user1_avg_pub_year"] = round(float(df1_read["book_published"].dropna().mean())) if not df1_read["book_published"].dropna().empty else None
-    metrics["user2_avg_pub_year"] = round(float(df2_read["book_published"].dropna().mean())) if not df2_read["book_published"].dropna().empty else None
+    metrics["user1_avg_pub_year"] = int(df1_read["book_published"].dropna().mean()) if not df1_read["book_published"].dropna().empty else None
+    metrics["user2_avg_pub_year"] = int(df2_read["book_published"].dropna().mean()) if not df2_read["book_published"].dropna().empty else None
     
-    # Oldest book read - use read shelf
-    metrics["user1_oldest_book"] = int(df1_read["book_published"].dropna().min()) if not df1_read["book_published"].dropna().empty else None
-    metrics["user2_oldest_book"] = int(df2_read["book_published"].dropna().min()) if not df2_read["book_published"].dropna().empty else None
+    # Find oldest book for each user with details
+    if not df1_read["book_published"].dropna().empty:
+        oldest_book_year = int(df1_read["book_published"].dropna().min())
+        metrics["user1_oldest_book"] = oldest_book_year
+        oldest_book = df1_read[df1_read["book_published"] == oldest_book_year].iloc[0]
+        metrics["user1_oldest_book_details"] = {
+            "title": oldest_book["title"],
+            "author": oldest_book["author"],
+            "year": int(oldest_book["book_published"]),
+            "book_id": oldest_book["book_id"],
+            "image": oldest_book.get("image_medium", "")
+        }
+    else:
+        metrics["user1_oldest_book"] = None
+        metrics["user1_oldest_book_details"] = None
+    
+    if not df2_read["book_published"].dropna().empty:
+        oldest_book_year = int(df2_read["book_published"].dropna().min())
+        metrics["user2_oldest_book"] = oldest_book_year
+        oldest_book = df2_read[df2_read["book_published"] == oldest_book_year].iloc[0]
+        metrics["user2_oldest_book_details"] = {
+            "title": oldest_book["title"],
+            "author": oldest_book["author"],
+            "year": int(oldest_book["book_published"]),
+            "book_id": oldest_book["book_id"],
+            "image": oldest_book.get("image_medium", "")
+        }
+    else:
+        metrics["user2_oldest_book"] = None
+        metrics["user2_oldest_book_details"] = None
+    
+    # Find longest book for each user with details
+    if not df1_read["num_pages"].dropna().empty:
+        longest_book_pages = int(df1_read["num_pages"].dropna().max())
+        longest_book = df1_read[df1_read["num_pages"] == longest_book_pages].iloc[0]
+        metrics["user1_longest_book_details"] = {
+            "title": longest_book["title"],
+            "author": longest_book["author"],
+            "pages": int(longest_book["num_pages"]),
+            "book_id": longest_book["book_id"],
+            "image": longest_book.get("image_medium", "")
+        }
+    else:
+        metrics["user1_longest_book_details"] = None
+    
+    if not df2_read["num_pages"].dropna().empty:
+        longest_book_pages = int(df2_read["num_pages"].dropna().max())
+        longest_book = df2_read[df2_read["num_pages"] == longest_book_pages].iloc[0]
+        metrics["user2_longest_book_details"] = {
+            "title": longest_book["title"],
+            "author": longest_book["author"],
+            "pages": int(longest_book["num_pages"]),
+            "book_id": longest_book["book_id"],
+            "image": longest_book.get("image_medium", "")
+        }
+    else:
+        metrics["user2_longest_book_details"] = None
+    
+    # Publication era distribution
+    era_ranges = {
+        "pre_1900": (0, 1900),
+        "1900_1950": (1900, 1950),
+        "1950_1980": (1950, 1980),
+        "1980_2000": (1980, 2000),
+        "2000_2010": (2000, 2010),
+        "2010_present": (2010, 3000)  # Using 3000 as an upper bound
+    }
+    
+    # Calculate publication era distributions for both users
+    user1_era_dist = {era: 0 for era in era_ranges}
+    user2_era_dist = {era: 0 for era in era_ranges}
+    
+    for _, book in df1_read.iterrows():
+        if pd.notna(book["book_published"]):
+            year = int(book["book_published"])
+            for era, (start, end) in era_ranges.items():
+                if start <= year < end:
+                    user1_era_dist[era] += 1
+                    break
+    
+    for _, book in df2_read.iterrows():
+        if pd.notna(book["book_published"]):
+            year = int(book["book_published"])
+            for era, (start, end) in era_ranges.items():
+                if start <= year < end:
+                    user2_era_dist[era] += 1
+                    break
+    
+    # Convert to percentages
+    total_books1 = sum(user1_era_dist.values())
+    total_books2 = sum(user2_era_dist.values())
+    
+    if total_books1 > 0:
+        user1_era_pct = {era: round(count / total_books1 * 100, 1) for era, count in user1_era_dist.items()}
+    else:
+        user1_era_pct = {era: 0 for era in era_ranges}
+    
+    if total_books2 > 0:
+        user2_era_pct = {era: round(count / total_books2 * 100, 1) for era, count in user2_era_dist.items()}
+    else:
+        user2_era_pct = {era: 0 for era in era_ranges}
+    
+    # Find dominant era for each user
+    user1_dominant_era = max(user1_era_dist.items(), key=lambda x: x[1])[0] if total_books1 > 0 else None
+    user2_dominant_era = max(user2_era_dist.items(), key=lambda x: x[1])[0] if total_books2 > 0 else None
+    
+    # Calculate era overlap (dot product of normalized distributions)
+    era_similarity = 0
+    if total_books1 > 0 and total_books2 > 0:
+        for era in era_ranges:
+            era_similarity += (user1_era_dist[era] / total_books1) * (user2_era_dist[era] / total_books2)
+        era_similarity = round(era_similarity * 100, 1)  # Convert to percentage
+    
+    # Add era metrics to the results
+    metrics["user1_era_distribution"] = user1_era_pct
+    metrics["user2_era_distribution"] = user2_era_pct
+    metrics["user1_dominant_era"] = user1_dominant_era
+    metrics["user2_dominant_era"] = user2_dominant_era
+    metrics["era_similarity"] = era_similarity
     
     # Find common authors and their books
     user1_authors = set(df1["author"].dropna())
