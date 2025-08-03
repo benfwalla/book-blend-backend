@@ -27,28 +27,14 @@ def _make_json_serializable(obj):
     else:
         return obj
 
-def calculate_blend_metrics(df1, df2):
-    """
-    Calculate various metrics to quantify the compatibility between two users' reading habits
-    
-    Args:
-        df1 (DataFrame): First user's books
-        df2 (DataFrame): Second user's books
-        
-    Returns:
-        dict: Dictionary containing various blend metrics
-    """
-    metrics = {}
-    
-    # Filter for books in different shelves using exact shelf matching
-    df1_read = df1[df1["user_shelves"] == "read"]
-    df2_read = df2[df2["user_shelves"] == "read"]
-    df1_to_read = df1[df1["user_shelves"] == "to-read"]
-    df2_to_read = df2[df2["user_shelves"] == "to-read"]
-    df1_currently_reading = df1[df1["user_shelves"] == "currently-reading"]
-    df2_currently_reading = df2[df2["user_shelves"] == "currently-reading"]
+def filter_shelf_books(df, shelf_name):
+    """Filter dataframe to only include books on a specific shelf"""
+    return df[df["user_shelves"] == shelf_name]
 
-    # Basic count metrics - use read shelf
+def calculate_basic_metrics(df1, df2, df1_read, df2_read, df1_to_read, df2_to_read, df1_currently_reading, df2_currently_reading):
+    """Calculate basic count metrics for both users"""
+    metrics = {}
+    # Basic count metrics
     metrics["user1_total_book_count"] = int(len(df1))
     metrics["user2_total_book_count"] = int(len(df2))
     metrics["user1_read_count"] = int(len(df1_read))
@@ -61,93 +47,98 @@ def calculate_blend_metrics(df1, df2):
     # Calculate total pages read (ignoring None values) - use read shelf
     metrics["user1_pages_read"] = float(df1_read["num_pages"].dropna().sum())
     metrics["user2_pages_read"] = float(df2_read["num_pages"].dropna().sum())
+    
+    return metrics
 
-    # Calculate average page length (ignoring None values) - use read shelf
+def calculate_page_metrics(df1_read, df2_read):
+    """Calculate metrics related to book page counts"""
+    metrics = {}
+    # Average page length - use read shelf
     metrics["user1_avg_page_length"] = round(float(df1_read["num_pages"].dropna().mean()), 2) if not df1_read["num_pages"].dropna().empty else None
     metrics["user2_avg_page_length"] = round(float(df2_read["num_pages"].dropna().mean()), 2) if not df2_read["num_pages"].dropna().empty else None
     
-    # Calculate median page length - use read shelf
-    metrics["user1_median_page_length"] = round(float(df1_read["num_pages"].dropna().median()), 2) if not df1_read["num_pages"].dropna().empty else None
-    metrics["user2_median_page_length"] = round(float(df2_read["num_pages"].dropna().median()), 2) if not df2_read["num_pages"].dropna().empty else None
+    # Median page length - use read shelf
+    metrics["user1_median_page_length"] = float(df1_read["num_pages"].dropna().median()) if not df1_read["num_pages"].dropna().empty else None
+    metrics["user2_median_page_length"] = float(df2_read["num_pages"].dropna().median()) if not df2_read["num_pages"].dropna().empty else None
+    
+    return metrics
 
-    # Calculate total ratings given - use all shelves
-    metrics["user1_ratings_given"] = int((df1["user_rating"] > 0).sum())
-    metrics["user2_ratings_given"] = int((df2["user_rating"] > 0).sum())
+def calculate_rating_metrics(df1, df2):
+    """Calculate metrics related to book ratings"""
+    metrics = {}
+    # Count of non-zero ratings
+    metrics["user1_ratings_given"] = int(len(df1[df1["user_rating"] > 0]))
+    metrics["user2_ratings_given"] = int(len(df2[df2["user_rating"] > 0]))
     
-    # Average rating comparison - use all shelves
-    metrics["user1_avg_rating"] = round(float(df1["user_rating"][(df1["user_rating"] != 0) & df1["user_rating"].notna()].mean()), 2) if not df1["user_rating"][(df1["user_rating"] != 0) & df1["user_rating"].notna()].empty else None
-    metrics["user2_avg_rating"] = round(float(df2["user_rating"][(df2["user_rating"] != 0) & df2["user_rating"].notna()].mean()), 2) if not df2["user_rating"][(df2["user_rating"] != 0) & df2["user_rating"].notna()].empty else None
+    # Average user ratings (ignoring zero ratings)
+    user1_ratings = df1[df1["user_rating"] > 0]["user_rating"]
+    user2_ratings = df2[df2["user_rating"] > 0]["user_rating"]
+    metrics["user1_avg_rating"] = round(float(user1_ratings.mean()), 2) if not user1_ratings.empty else None
+    metrics["user2_avg_rating"] = round(float(user2_ratings.mean()), 2) if not user2_ratings.empty else None
     
+    return metrics
+
+def calculate_book_overlap_metrics(df1, df2, df1_read, df2_read):
+    """Calculate metrics related to book overlap between users"""
+    metrics = {}
     # Book overlap - use all shelves
-    common_books_count = len(set(df1["book_id"]) & set(df2["book_id"]))
-    metrics["common_books_count"] = common_books_count
+    user1_book_ids = set(df1["book_id"].dropna())
+    user2_book_ids = set(df2["book_id"].dropna())
+    common_book_ids = user1_book_ids.intersection(user2_book_ids)
+    metrics["common_books_count"] = len(common_book_ids)
     
-    # Read book overlap - only books both have read
-    common_read_books_count = len(set(df1_read["book_id"]) & set(df2_read["book_id"]))
+    # Count common books that are on the "read" shelf for both users
+    user1_read_ids = set(df1_read["book_id"].dropna())
+    user2_read_ids = set(df2_read["book_id"].dropna())
+    common_read_books_count = len(user1_read_ids.intersection(user2_read_ids))
     metrics["common_read_books_count"] = common_read_books_count
     
+    return metrics
+
+def calculate_publication_year_metrics(df1_read, df2_read):
+    """Calculate metrics related to book publication years"""
+    metrics = {}
     # Publication year preferences - use read shelf
     metrics["user1_avg_pub_year"] = int(df1_read["book_published"].dropna().mean()) if not df1_read["book_published"].dropna().empty else None
     metrics["user2_avg_pub_year"] = int(df2_read["book_published"].dropna().mean()) if not df2_read["book_published"].dropna().empty else None
     
-    # Find oldest book for each user with details
-    if not df1_read["book_published"].dropna().empty:
-        oldest_book_year = int(df1_read["book_published"].dropna().min())
-        metrics["user1_oldest_book"] = oldest_book_year
-        oldest_book = df1_read[df1_read["book_published"] == oldest_book_year].iloc[0]
-        metrics["user1_oldest_book_details"] = {
-            "title": oldest_book["title"],
-            "author": oldest_book["author"],
-            "year": int(oldest_book["book_published"]),
-            "book_id": oldest_book["book_id"],
-            "image": oldest_book.get("image_medium", "")
+    return metrics
+
+def get_oldest_book_details(df_read):
+    """Get details about the oldest book a user has read"""
+    if not df_read["book_published"].dropna().empty:
+        oldest_book_year = int(df_read["book_published"].dropna().min())
+        oldest_book = df_read[df_read["book_published"] == oldest_book_year].iloc[0]
+        return {
+            "year": oldest_book_year,
+            "details": {
+                "title": oldest_book["title"],
+                "author": oldest_book["author"],
+                "year": int(oldest_book["book_published"]),
+                "book_id": oldest_book["book_id"],
+                "image": oldest_book.get("image_medium", "")
+            }
         }
-    else:
-        metrics["user1_oldest_book"] = None
-        metrics["user1_oldest_book_details"] = None
-    
-    if not df2_read["book_published"].dropna().empty:
-        oldest_book_year = int(df2_read["book_published"].dropna().min())
-        metrics["user2_oldest_book"] = oldest_book_year
-        oldest_book = df2_read[df2_read["book_published"] == oldest_book_year].iloc[0]
-        metrics["user2_oldest_book_details"] = {
-            "title": oldest_book["title"],
-            "author": oldest_book["author"],
-            "year": int(oldest_book["book_published"]),
-            "book_id": oldest_book["book_id"],
-            "image": oldest_book.get("image_medium", "")
+    return {"year": None, "details": None}
+
+def get_longest_book_details(df_read):
+    """Get details about the longest book a user has read"""
+    if not df_read["num_pages"].dropna().empty:
+        longest_book_pages = int(df_read["num_pages"].dropna().max())
+        longest_book = df_read[df_read["num_pages"] == longest_book_pages].iloc[0]
+        return {
+            "details": {
+                "title": longest_book["title"],
+                "author": longest_book["author"],
+                "pages": int(longest_book["num_pages"]),
+                "book_id": longest_book["book_id"],
+                "image": longest_book.get("image_medium", "")
+            }
         }
-    else:
-        metrics["user2_oldest_book"] = None
-        metrics["user2_oldest_book_details"] = None
-    
-    # Find longest book for each user with details
-    if not df1_read["num_pages"].dropna().empty:
-        longest_book_pages = int(df1_read["num_pages"].dropna().max())
-        longest_book = df1_read[df1_read["num_pages"] == longest_book_pages].iloc[0]
-        metrics["user1_longest_book_details"] = {
-            "title": longest_book["title"],
-            "author": longest_book["author"],
-            "pages": int(longest_book["num_pages"]),
-            "book_id": longest_book["book_id"],
-            "image": longest_book.get("image_medium", "")
-        }
-    else:
-        metrics["user1_longest_book_details"] = None
-    
-    if not df2_read["num_pages"].dropna().empty:
-        longest_book_pages = int(df2_read["num_pages"].dropna().max())
-        longest_book = df2_read[df2_read["num_pages"] == longest_book_pages].iloc[0]
-        metrics["user2_longest_book_details"] = {
-            "title": longest_book["title"],
-            "author": longest_book["author"],
-            "pages": int(longest_book["num_pages"]),
-            "book_id": longest_book["book_id"],
-            "image": longest_book.get("image_medium", "")
-        }
-    else:
-        metrics["user2_longest_book_details"] = None
-    
+    return {"details": None}
+
+def calculate_era_metrics(df1_read, df2_read):
+    """Calculate metrics related to book publication eras"""
     # Publication era distribution
     era_ranges = {
         "pre_1900": (0, 1900),
@@ -203,18 +194,21 @@ def calculate_blend_metrics(df1, df2):
             era_similarity += (user1_era_dist[era] / total_books1) * (user2_era_dist[era] / total_books2)
         era_similarity = round(era_similarity * 100, 1)  # Convert to percentage
     
-    # Add era metrics to the results
-    metrics["user1_era_distribution"] = user1_era_pct
-    metrics["user2_era_distribution"] = user2_era_pct
-    metrics["user1_dominant_era"] = user1_dominant_era
-    metrics["user2_dominant_era"] = user2_dominant_era
-    metrics["era_similarity"] = era_similarity
-    
+    # Return era metrics
+    return {
+        "user1_era_distribution": user1_era_pct,
+        "user2_era_distribution": user2_era_pct,
+        "user1_dominant_era": user1_dominant_era,
+        "user2_dominant_era": user2_dominant_era,
+        "era_similarity": era_similarity
+    }
+
+def find_common_authors(df1, df2):
+    """Calculate metrics related to author overlap between users"""
     # Find common authors and their books
     user1_authors = set(df1["author"].dropna())
     user2_authors = set(df2["author"].dropna())
     common_authors = user1_authors.intersection(user2_authors)
-    metrics["common_authors_count"] = len(common_authors)
     
     # Get detailed information about common authors
     common_authors_info = []
@@ -245,7 +239,69 @@ def calculate_blend_metrics(df1, df2):
     
     # Sort by total number of books by this author between both users
     common_authors_info.sort(key=lambda x: len(x["user1_books"]) + len(x["user2_books"]), reverse=True)
-    metrics["common_authors"] = common_authors_info
+    
+    return {
+        "common_authors_count": len(common_authors),
+        "common_authors": common_authors_info
+    }
+
+def calculate_blend_metrics(df1, df2):
+    """
+    Calculate various metrics to quantify the compatibility between two users' reading habits
+    
+    Args:
+        df1 (DataFrame): First user's books
+        df2 (DataFrame): Second user's books
+        
+    Returns:
+        dict: Dictionary containing various blend metrics
+    """
+    # Filter books by shelf
+    df1_read = filter_shelf_books(df1, "read")
+    df2_read = filter_shelf_books(df2, "read")
+    df1_to_read = filter_shelf_books(df1, "to-read")
+    df2_to_read = filter_shelf_books(df2, "to-read")
+    df1_currently_reading = filter_shelf_books(df1, "currently-reading")
+    df2_currently_reading = filter_shelf_books(df2, "currently-reading")
+    
+    # Initialize metrics dictionary
+    metrics = {}
+    
+    # Calculate different metric categories
+    basic_metrics = calculate_basic_metrics(df1, df2, df1_read, df2_read, df1_to_read, df2_to_read, df1_currently_reading, df2_currently_reading)
+    page_metrics = calculate_page_metrics(df1_read, df2_read)
+    rating_metrics = calculate_rating_metrics(df1, df2)
+    book_overlap_metrics = calculate_book_overlap_metrics(df1, df2, df1_read, df2_read)
+    publication_year_metrics = calculate_publication_year_metrics(df1_read, df2_read)
+    
+    # Get book details
+    user1_oldest_book = get_oldest_book_details(df1_read)
+    user2_oldest_book = get_oldest_book_details(df2_read)
+    user1_longest_book = get_longest_book_details(df1_read)
+    user2_longest_book = get_longest_book_details(df2_read)
+    
+    # Calculate era metrics
+    era_metrics = calculate_era_metrics(df1_read, df2_read)
+    
+    # Calculate author overlap
+    author_metrics = find_common_authors(df1, df2)
+    
+    # Combine all metrics
+    metrics.update(basic_metrics)
+    metrics.update(page_metrics)
+    metrics.update(rating_metrics)
+    metrics.update(book_overlap_metrics)
+    metrics.update(publication_year_metrics)
+    metrics.update(era_metrics)
+    metrics.update(author_metrics)
+    
+    # Add book details
+    metrics["user1_oldest_book"] = user1_oldest_book["year"]
+    metrics["user1_oldest_book_details"] = user1_oldest_book["details"]
+    metrics["user2_oldest_book"] = user2_oldest_book["year"]
+    metrics["user2_oldest_book_details"] = user2_oldest_book["details"]
+    metrics["user1_longest_book_details"] = user1_longest_book["details"]
+    metrics["user2_longest_book_details"] = user2_longest_book["details"]
     
     return metrics
 
