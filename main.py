@@ -1,9 +1,11 @@
 import math
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from util.rss_feed_books import fetch_users_books
 from util.user_info import get_goodreads_user_info
 from util.blend import blend_two_users
+import json
 
 # Local execution
 # uvicorn main:app --reload
@@ -67,3 +69,13 @@ def get_blend(user_id1: str, user_id2: str):
 
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+with open("openapi.json", "w") as f:
+    schema = get_openapi(
+        title=app.title,
+        version="1.0.0",
+        description="API Docs for My FastAPI App",
+        routes=app.routes,
+    )
+    json.dump(schema, f, indent=2)
