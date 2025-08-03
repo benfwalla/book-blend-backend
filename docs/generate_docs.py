@@ -8,7 +8,6 @@ def generate_openapi_schema(app):
         description="API Docs for bookblend.io",
         routes=app.routes,
     )
-    schema["openapi"] = "3.1.0"  # Optional: force latest spec
     schema["servers"] = [
         {
             "url": "https://book-blend-backend.vercel.app/"
