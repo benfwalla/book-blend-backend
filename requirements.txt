@@ -4,3 +4,4 @@ pandas
 python-dotenv
 uvicorn[standard]
 fastapi
+openai
