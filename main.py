@@ -71,7 +71,7 @@ def get_blend(user_id1: str, user_id2: str):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
-with open("openapi.json", "w") as f:
+with open("docs/openapi.json", "w") as f:
     schema = get_openapi(
         title=app.title,
         version="1.0.0",

@@ -1,0 +1,10 @@
+{
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "API Reference",
+        "openapi": "docs/openapi.json"
+      }
+    ]
+  }
+}
