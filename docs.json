@@ -1,4 +1,11 @@
 {
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "BookBlend API",
+  "description": "Documentation for the BookBlend API, which compares Goodreads users and recommends books.",
+  "colors": {
+    "primary": "#6366f1"
+  },
   "navigation": {
     "tabs": [
       {
