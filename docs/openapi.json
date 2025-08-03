@@ -9,7 +9,7 @@
     "/books": {
       "get": {
         "summary": "Get Books",
-        "description": "Get a list of books for a given Goodreads user and shelf (default is \"all\")",
+        "description": "Returns a list of books for a specific Goodreads user and shelf.",
         "operationId": "get_books_books_get",
         "parameters": [
           {
@@ -18,8 +18,10 @@
             "required": true,
             "schema": {
               "type": "string",
+              "description": "The Goodreads user ID.",
               "title": "User Id"
-            }
+            },
+            "description": "The Goodreads user ID."
           },
           {
             "name": "shelf",
@@ -27,9 +29,11 @@
             "required": false,
             "schema": {
               "type": "string",
+              "description": "The Goodreads shelf name (e.g., 'read', 'to-read').",
               "default": "all",
               "title": "Shelf"
-            }
+            },
+            "description": "The Goodreads shelf name (e.g., 'read', 'to-read')."
           }
         ],
         "responses": {
@@ -57,7 +61,7 @@
     "/user": {
       "get": {
         "summary": "Get User Info",
-        "description": "Get information about a given Goodreads user",
+        "description": "Fetches metadata about a Goodreads user, including name and profile information.",
         "operationId": "get_user_info_user_get",
         "parameters": [
           {
@@ -66,8 +70,10 @@
             "required": true,
             "schema": {
               "type": "string",
+              "description": "The Goodreads user ID.",
               "title": "User Id"
-            }
+            },
+            "description": "The Goodreads user ID."
           }
         ],
         "responses": {
@@ -95,7 +101,7 @@
     "/blend": {
       "get": {
         "summary": "Get Blend",
-        "description": "Gets blend data between two given Goodreads users",
+        "description": "Generates shared book insights between two Goodreads users.",
         "operationId": "get_blend_blend_get",
         "parameters": [
           {
@@ -104,8 +110,10 @@
             "required": true,
             "schema": {
               "type": "string",
+              "description": "The Goodreads user ID for the first user.",
               "title": "User Id1"
-            }
+            },
+            "description": "The Goodreads user ID for the first user."
           },
           {
             "name": "user_id2",
@@ -113,8 +121,10 @@
             "required": true,
             "schema": {
               "type": "string",
+              "description": "The Goodreads user ID for the second user.",
               "title": "User Id2"
-            }
+            },
+            "description": "The Goodreads user ID for the second user."
           }
         ],
         "responses": {
