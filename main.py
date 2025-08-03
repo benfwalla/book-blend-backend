@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from util.rss_feed_books import fetch_users_books
 from util.user_info import get_goodreads_user_info
-from util.blend import fetch_two_users_books
+from util.blend import blend_two_users
 
 # Local execution
 # uvicorn main:app --reload
@@ -50,7 +50,7 @@ def get_friends(user_id: str):
 def get_blend(user_id1: str, user_id2: str):
     try:
         # Get enhanced blend data with metrics
-        raw_data = fetch_two_users_books(user_id1=user_id1, user_id2=user_id2, shelf='all')
+        raw_data = blend_two_users(user_id1=user_id1, user_id2=user_id2, shelf='all')
 
         # Sanitize the data structure recursively
         def sanitize_nested(obj):
