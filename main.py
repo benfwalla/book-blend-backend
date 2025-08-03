@@ -17,10 +17,6 @@ def sanitize(obj):
         return None
     return obj
 
-@app.get("/")
-def read_root():
-    return {"message": "hi"}
-
 @app.get("/books")
 def get_books(user_id: str, shelf: str = "all"):
     try:
