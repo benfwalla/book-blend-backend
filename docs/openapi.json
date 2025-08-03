@@ -5,11 +5,6 @@
     "description": "API Docs for bookblend.io",
     "version": "1.0.0"
   },
-  "servers": [
-    {
-      "url": "https://book-blend-backend.vercel.app/"
-    }
-  ],
   "paths": {
     "/": {
       "get": {
@@ -207,5 +202,10 @@
         "title": "ValidationError"
       }
     }
-  }
+  },
+  "servers": [
+    {
+      "url": "https://book-blend-backend.vercel.app/"
+    }
+  ]
 }

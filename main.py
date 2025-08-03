@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from util.rss_feed_books import fetch_users_books
 from util.user_info import get_goodreads_user_info
 from util.blend import blend_two_users
+from docs.generate_docs import generate_openapi_schema
 import json
 
 # Local execution
@@ -70,12 +71,6 @@ def get_blend(user_id1: str, user_id2: str):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+if __name__ == "__main__":
 
-with open("docs/openapi.json", "w") as f:
-    schema = get_openapi(
-        title=app.title,
-        version="1.0.0",
-        description="API Docs for My FastAPI App",
-        routes=app.routes,
-    )
-    json.dump(schema, f, indent=2)
+    generate_openapi_schema(app)
