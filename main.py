@@ -21,9 +21,6 @@ def sanitize(obj):
 def get_books(user_id: str, shelf: str = "all"):
     """
     Get a list of books for a given Goodreads user and shelf (default is "all")
-    :param user_id: The ID of the user on Goodreads
-    :param shelf: The name of the Goodreads shelf (i.e. "all", "to-read", "currently-reading", "read")
-    :return: A JSON object containing a list of books
     """
     try:
         # Get possibly dirty list of dicts
@@ -44,9 +41,6 @@ def get_books(user_id: str, shelf: str = "all"):
 def get_user_info(user_id: str) -> JSONResponse:
     """
     Get information about a given Goodreads user
-
-    :param user_id: The ID of the user on Goodreads
-    :return: A JSON object with information about the user
     """
     try:
         # Get list of friends for the user
@@ -61,9 +55,6 @@ def get_user_info(user_id: str) -> JSONResponse:
 def get_blend(user_id1: str, user_id2: str):
     """
     Gets blend data between two given Goodreads users
-    :param user_id1: The ID of the first user
-    :param user_id2: The ID of the second user
-    :return: A JSON object with blend data
     """
     try:
         # Get enhanced blend data with metrics
