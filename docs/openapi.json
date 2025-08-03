@@ -9,7 +9,7 @@
     "/books": {
       "get": {
         "summary": "Get Books",
-        "description": "Get a list of books for a given Goodreads user and shelf (default is \"all\")\n:param user_id: The ID of the user on Goodreads\n:param shelf: The name of the Goodreads shelf (i.e. \"all\", \"to-read\", \"currently-reading\", \"read\")\n:return: A JSON object containing a list of books",
+        "description": "Get a list of books for a given Goodreads user and shelf (default is \"all\")",
         "operationId": "get_books_books_get",
         "parameters": [
           {
@@ -57,7 +57,7 @@
     "/user": {
       "get": {
         "summary": "Get User Info",
-        "description": "Get information about a given Goodreads user\n\n:param user_id: The ID of the user on Goodreads\n:return: A JSON object with information about the user",
+        "description": "Get information about a given Goodreads user",
         "operationId": "get_user_info_user_get",
         "parameters": [
           {
@@ -95,7 +95,7 @@
     "/blend": {
       "get": {
         "summary": "Get Blend",
-        "description": "Gets blend data between two given Goodreads users\n:param user_id1: The ID of the first user\n:param user_id2: The ID of the second user\n:return: A JSON object with blend data",
+        "description": "Gets blend data between two given Goodreads users",
         "operationId": "get_blend_blend_get",
         "parameters": [
           {
