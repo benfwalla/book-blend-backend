@@ -40,14 +40,14 @@ def calculate_blend_metrics(df1, df2):
     """
     metrics = {}
     
-    # Filter for books in different shelves
-    df1_read = df1[df1["user_shelves"].str.contains("read", case=False, na=False)]
-    df2_read = df2[df2["user_shelves"].str.contains("read", case=False, na=False)]
-    df1_to_read = df1[df1["user_shelves"].str.contains("to-read", case=False, na=False)]
-    df2_to_read = df2[df2["user_shelves"].str.contains("to-read", case=False, na=False)]
-    df1_currently_reading = df1[df1["user_shelves"].str.contains("currently-reading", case=False, na=False)]
-    df2_currently_reading = df2[df2["user_shelves"].str.contains("currently-reading", case=False, na=False)]
-    
+    # Filter for books in different shelves using exact shelf matching
+    df1_read = df1[df1["user_shelves"] == "read"]
+    df2_read = df2[df2["user_shelves"] == "read"]
+    df1_to_read = df1[df1["user_shelves"] == "to-read"]
+    df2_to_read = df2[df2["user_shelves"] == "to-read"]
+    df1_currently_reading = df1[df1["user_shelves"] == "currently-reading"]
+    df2_currently_reading = df2[df2["user_shelves"] == "currently-reading"]
+
     # Basic count metrics - use read shelf
     metrics["user1_total_book_count"] = int(len(df1))
     metrics["user2_total_book_count"] = int(len(df2))
