@@ -16,7 +16,7 @@ def sanitize(obj):
 
 @app.get("/")
 def read_root():
-    return {"message": "📚 Welcome to the BookBlend API!"}
+    return {"message": "hi"}
 
 @app.get("/books")
 def get_books(user_id: str, shelf: str = "all"):
@@ -36,7 +36,7 @@ def get_books(user_id: str, shelf: str = "all"):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/user")
-def get_friends(user_id: str):
+def get_user_info(user_id: str):
     try:
         # Get list of friends for the user
         raw_data = get_goodreads_user_info(user_id=user_id)
@@ -50,7 +50,7 @@ def get_friends(user_id: str):
 def get_blend(user_id1: str, user_id2: str):
     try:
         # Get enhanced blend data with metrics
-        raw_data = blend_two_users(user_id1=user_id1, user_id2=user_id2, shelf='all')
+        raw_data = blend_two_users(user_id1=user_id1, user_id2=user_id2, shelf='all', include_books=False)
 
         # Sanitize the data structure recursively
         def sanitize_nested(obj):

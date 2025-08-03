@@ -1,8 +1,8 @@
 import concurrent.futures
 import pandas as pd
 import numpy as np
-from collections import Counter
 from util.rss_feed_books import fetch_users_books
+from util.user_info import get_goodreads_user_info
 
 def _make_json_serializable(obj):
     """
@@ -40,15 +40,23 @@ def calculate_blend_metrics(df1, df2):
     """
     metrics = {}
     
-    # Filter for books in the "read" shelf
+    # Filter for books in different shelves
     df1_read = df1[df1["user_shelves"].str.contains("read", case=False, na=False)]
     df2_read = df2[df2["user_shelves"].str.contains("read", case=False, na=False)]
+    df1_to_read = df1[df1["user_shelves"].str.contains("to-read", case=False, na=False)]
+    df2_to_read = df2[df2["user_shelves"].str.contains("to-read", case=False, na=False)]
+    df1_currently_reading = df1[df1["user_shelves"].str.contains("currently-reading", case=False, na=False)]
+    df2_currently_reading = df2[df2["user_shelves"].str.contains("currently-reading", case=False, na=False)]
     
     # Basic count metrics - use read shelf
     metrics["user1_total_book_count"] = int(len(df1))
     metrics["user2_total_book_count"] = int(len(df2))
     metrics["user1_read_count"] = int(len(df1_read))
     metrics["user2_read_count"] = int(len(df2_read))
+    metrics["user1_to_read_count"] = int(len(df1_to_read))
+    metrics["user2_to_read_count"] = int(len(df2_to_read))
+    metrics["user1_currently_reading_count"] = int(len(df1_currently_reading))
+    metrics["user2_currently_reading_count"] = int(len(df2_currently_reading))
     
     # Calculate total pages read (ignoring None values) - use read shelf
     metrics["user1_pages_read"] = float(df1_read["num_pages"].dropna().sum())
@@ -86,28 +94,42 @@ def calculate_blend_metrics(df1, df2):
     metrics["user1_oldest_book"] = int(df1_read["book_published"].dropna().min()) if not df1_read["book_published"].dropna().empty else None
     metrics["user2_oldest_book"] = int(df2_read["book_published"].dropna().min()) if not df2_read["book_published"].dropna().empty else None
     
-    # Author overlap - use all shelves but with enhanced details
+    # Find common authors and their books
     user1_authors = set(df1["author"].dropna())
     user2_authors = set(df2["author"].dropna())
-    common_authors = user1_authors & user2_authors
+    common_authors = user1_authors.intersection(user2_authors)
     metrics["common_authors_count"] = len(common_authors)
     
-    # Enhanced author details
-    author_details = []
+    # Get detailed information about common authors
+    common_authors_info = []
     for author in common_authors:
-        user1_books_by_author = df1[df1["author"] == author].to_dict(orient="records")
-        user2_books_by_author = df2[df2["author"] == author].to_dict(orient="records")
+        user1_author_books = df1[df1["author"] == author]
+        user2_author_books = df2[df2["author"] == author]
         
-        author_detail = {
+        author_info = {
             "author": author,
-            "user1_books": [{"title": book["title"], "shelves": book["user_shelves"], "book_id": book["book_id"]} for book in user1_books_by_author],
-            "user2_books": [{"title": book["title"], "shelves": book["user_shelves"], "book_id": book["book_id"]} for book in user2_books_by_author]
+            "user1_books": [
+                {
+                    "title": row["title"],
+                    "shelves": row["user_shelves"],
+                    "book_id": row["book_id"]
+                }
+                for _, row in user1_author_books.iterrows()
+            ],
+            "user2_books": [
+                {
+                    "title": row["title"],
+                    "shelves": row["user_shelves"],
+                    "book_id": row["book_id"]
+                }
+                for _, row in user2_author_books.iterrows()
+            ]
         }
-        author_details.append(author_detail)
+        common_authors_info.append(author_info)
     
-    # Sort authors by total book count
-    author_details.sort(key=lambda x: len(x["user1_books"]) + len(x["user2_books"]), reverse=True)
-    metrics["common_authors_details"] = author_details
+    # Sort by total number of books by this author between both users
+    common_authors_info.sort(key=lambda x: len(x["user1_books"]) + len(x["user2_books"]), reverse=True)
+    metrics["common_authors"] = common_authors_info
     
     return metrics
 
@@ -154,7 +176,7 @@ def find_common_books(user1_books, user2_books):
     
     return common_books
 
-def blend_two_users(user_id1, user_id2, shelf="all"):
+def blend_two_users(user_id1, user_id2, shelf="all", include_books=False):
     """
     Fetch Goodreads shelves for two users in parallel and return a combined JSON output
     with compatibility metrics and reading insights
@@ -163,31 +185,27 @@ def blend_two_users(user_id1, user_id2, shelf="all"):
         user_id1 (str): First Goodreads user ID
         user_id2 (str): Second Goodreads user ID
         shelf (str): Which shelf to fetch, defaults to "all"
+        include_books (bool): Whether to include all books in the response, defaults to False
 
     Returns:
         dict: Combined JSON with results separated by user IDs and blend metrics
     """
-
-    # Define a worker function that will be executed in parallel
-    def fetch_user_books(user_id):
-        return {
-            "user_id": user_id,
-            "books": fetch_users_books(user_id, shelf=shelf, return_type="json")
-        }
-
-    # Use ThreadPoolExecutor to run the fetches in parallel
+    
+    # Fetch user info in parallel with book data
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        # Submit both tasks
-        future1 = executor.submit(fetch_user_books, user_id1)
-        future2 = executor.submit(fetch_user_books, user_id2)
-
-        # Wait for both to complete and get results
-        result1 = future1.result()
-        result2 = future2.result()
-
-    # Calculate blend metrics
-    user1_books = result1["books"]
-    user2_books = result2["books"]
+        # Submit user info tasks
+        future_user1_info = executor.submit(get_goodreads_user_info, user_id1)
+        future_user2_info = executor.submit(get_goodreads_user_info, user_id2)
+        
+        # Submit book data tasks
+        future_user1_books = executor.submit(fetch_users_books, user_id1, shelf=shelf, return_type="json")
+        future_user2_books = executor.submit(fetch_users_books, user_id2, shelf=shelf, return_type="json")
+        
+        # Get results
+        user1_info = future_user1_info.result()["user"]
+        user2_info = future_user2_info.result()["user"]
+        user1_books = future_user1_books.result()
+        user2_books = future_user2_books.result()
 
     # Convert to DataFrames for easier analysis
     df1 = pd.DataFrame(user1_books)
@@ -199,12 +217,48 @@ def blend_two_users(user_id1, user_id2, shelf="all"):
     # Find common books
     common_books = find_common_books(user1_books, user2_books)
 
-    # Combine results into a single JSON output
+    # Extract user-specific metrics
+    user1_metrics = {}
+    user2_metrics = {}
+    common_metrics = {}
+    
+    for key, value in blend_metrics.items():
+        if key.startswith("user1_"):
+            user1_metrics[key.replace("user1_", "")] = value
+        elif key.startswith("user2_"):
+            user2_metrics[key.replace("user2_", "")] = value
+        else:
+            common_metrics[key] = value
+    
+    # Combine results into a single JSON output with restructured format
     combined_results = {
-        "results": [result1, result2],
-        "blend_metrics": blend_metrics,
-        "common_books": common_books
+        "users": {
+            user_id1: {
+                "id": user_id1,
+                "name": user1_info["name"],
+                "profile_url": user1_info["profile_url"],
+                "image_url": user1_info["image_url"],
+                "metrics": user1_metrics
+            },
+            user_id2: {
+                "id": user_id2,
+                "name": user2_info["name"],
+                "profile_url": user2_info["profile_url"],
+                "image_url": user2_info["image_url"],
+                "metrics": user2_metrics
+            }
+        },
+        "common_books": common_books,
+        "common_authors": blend_metrics.get("common_authors", [])
     }
+    
+    # Add common metrics
+    combined_results.update(common_metrics)
+    
+    # Only include all books if requested
+    if include_books:
+        combined_results["users"][user_id1]["books"] = user1_books
+        combined_results["users"][user_id2]["books"] = user2_books
 
     # Convert NumPy types to Python native types for JSON serialization
     combined_results = _make_json_serializable(combined_results)
