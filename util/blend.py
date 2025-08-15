@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from util.rss_feed_books import fetch_users_books
 from util.user_info import get_goodreads_user_info
+from util.ai_insights import get_ai_insights
 
 def _make_json_serializable(obj):
     """
@@ -426,6 +427,18 @@ def blend_two_users(user_id1, user_id2, shelf="all", include_books=False):
     
     # Add common metrics
     combined_results.update(common_metrics)
+    
+    # Generate AI insights based on books and metrics
+    ai_insights = get_ai_insights(
+        user1_books=user1_books,
+        user2_books=user2_books,
+        user1_name=user1_info["name"],
+        user2_name=user2_info["name"],
+        blend_metrics=blend_metrics
+    )
+    
+    # Add AI insights to combined results
+    combined_results["ai_insights"] = ai_insights
     
     # Only include all books if requested
     if include_books:

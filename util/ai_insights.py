@@ -3,7 +3,6 @@ import dotenv
 import json
 from typing import Dict, List, Any, Optional
 from openai import OpenAI
-from blend import blend_two_users
 
 dotenv.load_dotenv()
 
@@ -35,33 +34,6 @@ INSIGHT_STRUCTURE = {
         "for_user2": []           # Books user2 might enjoy based on user1's library
     }
 }
-
-def get_ai_insights(user1_books: List[Dict], user2_books: List[Dict], 
-                   user1_name: str = "User 1", user2_name: str = "User 2", 
-                   blend_metrics: Optional[Dict] = None) -> Dict[str, Any]:
-    """
-    Generate AI-powered insights about two users' reading preferences.
-    
-    Args:
-        user1_books: List of books from first user
-        user2_books: List of books from second user
-        user1_name: Name of first user
-        user2_name: Name of second user
-        blend_metrics: Optional metrics from blend function
-        
-    Returns:
-        Dictionary containing structured AI insights
-    """
-    # Check if we have books data
-    if not user1_books or not user2_books:
-        return {"error": "No books found for one or both users"}
-    
-    # Prepare data for LLM analysis
-    analysis_data = prepare_book_data_for_analysis(user1_books, user2_books)
-    
-    # Generate AI insights
-    return generate_insights_with_llm(analysis_data, user1_name, user2_name, blend_metrics or {})
-
 
 def prepare_book_data_for_analysis(user1_books: List[Dict], user2_books: List[Dict]) -> Dict:
     """
@@ -154,8 +126,8 @@ REQUIRED_OUTPUT_FORMAT:
 
     # User prompt with the book data
     user_prompt = f"""Analyze the reading preferences for {user1_name} and {user2_name} based on their book data.
-Generate insights about their genre preferences, fiction vs non-fiction ratio, and overall compatibility.
-Recommend books that each user might enjoy based on the other's reading history.
+Generate insights about their genre preferences (can have up to 10 genres per user), fiction vs non-fiction ratio, and overall compatibility.
+User the user's actual names in your response. Recommend books that each user might enjoy based on the other's reading history.
 
 USER 1 ({user1_name}) BOOKS:
 {json.dumps(book_data['user1_books'][:30], indent=2)}
@@ -241,24 +213,34 @@ def validate_and_structure_insights(insights: Dict) -> Dict:
     return result
 
 
+def get_ai_insights(user1_books: List[Dict], user2_books: List[Dict],
+                    user1_name: str = "User 1", user2_name: str = "User 2",
+                    blend_metrics: Optional[Dict] = None) -> Dict[str, Any]:
+    """
+    Generate AI-powered insights about two users' reading preferences.
+
+    Args:
+        user1_books: List of books from first user
+        user2_books: List of books from second user
+        user1_name: Name of first user
+        user2_name: Name of second user
+        blend_metrics: Optional metrics from blend function
+
+    Returns:
+        Dictionary containing structured AI insights
+    """
+    # Check if we have books data
+    if not user1_books or not user2_books:
+        return {"error": "No books found for one or both users"}
+
+    # Prepare data for LLM analysis
+    analysis_data = prepare_book_data_for_analysis(user1_books, user2_books)
+
+    # Generate AI insights
+    return generate_insights_with_llm(analysis_data, user1_name, user2_name, blend_metrics or {})
+
+
 if __name__ == "__main__":
     user1_id = "42944663"
     user2_id = "91692289"
-    
-    # Get blend data with books included
-    blend_data = blend_two_users(user1_id, user2_id, shelf="all", include_books=True)
-    
-    # Extract user names for better prompting
-    user1_name = blend_data["users"][user1_id].get("name", f"User {user1_id}")
-    user2_name = blend_data["users"][user2_id].get("name", f"User {user2_id}")
-    
-    # Get book data for analysis
-    user1_books = blend_data["users"][user1_id].get("books", [])
-    user2_books = blend_data["users"][user2_id].get("books", [])
-    
-    # Extract blend metrics
-    blend_metrics = {k: v for k, v in blend_data.items() if k not in ['users']}
-    
-    # Generate insights
-    insights = get_ai_insights(user1_books, user2_books, user1_name, user2_name, blend_metrics)
-    print(json.dumps(insights, indent=2))
+
