@@ -562,6 +562,9 @@ def blend_two_users(user_id1, user_id2, shelf="all", include_books=False):
             blend_metrics=blend_metrics
         )
     
+    # Add AI insights to combined results
+    combined_results["ai_insights"] = ai_insights
+    
     # Compute and attach final blend score (uses full dataframes, metrics, and ai_insights genres)
     combined_results["blend"] = compute_blend_score(df1, df2, blend_metrics, ai_insights if not skip_ai else {})
     
