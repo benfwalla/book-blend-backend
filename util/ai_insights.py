@@ -35,6 +35,96 @@ INSIGHT_STRUCTURE = {
     }
 }
 
+# Canonical genre taxonomy (balanced, compressed, UI-friendly)
+# Frontend and scoring will rely on these exact strings.
+GENRE_TAXONOMY: List[str] = [
+    # Fiction
+    "Literary Fiction",
+    "Contemporary Fiction",
+    "Classics",
+    "Historical Fiction",
+    "Science Fiction",
+    "Fantasy",
+    "Mystery",
+    "Thriller & Crime",
+    "Horror",
+    "Romance",
+    "Young Adult",
+    "Graphic Novels & Comics",
+    # Non-Fiction
+    "Non-Fiction",
+    "Memoir",
+    "Biography",
+    "History",
+    "Philosophy",
+    "Psychology",
+    "Self-Help",
+    "Business",
+    "Science",
+    "Poetry",
+    "Religion & Spirituality",
+]
+
+# Alias/normalization mapping (lowercased keys) → canonical taxonomy
+GENRE_ALIASES: Dict[str, str] = {
+    # Sci-fi variants
+    "sci-fi": "Science Fiction",
+    "scifi": "Science Fiction",
+    "sci fi": "Science Fiction",
+    # YA/children
+    "ya": "Young Adult",
+    "young adult": "Young Adult",
+    "children": "Young Adult",
+    "children's": "Young Adult",
+    # Self-help variants
+    "self help": "Self-Help",
+    # Biography/memoir
+    "bio": "Biography",
+    "autobiography": "Memoir",
+    # Fiction buckets
+    "lit fic": "Literary Fiction",
+    "litfic": "Literary Fiction",
+    "contemporary": "Contemporary Fiction",
+    "fiction": "Contemporary Fiction",
+    "classics": "Classics",
+    # Crime/thriller/suspense
+    "crime": "Thriller & Crime",
+    "suspense": "Thriller & Crime",
+    "thriller": "Thriller & Crime",
+    # Comics/graphic novels/manga
+    "comics": "Graphic Novels & Comics",
+    "graphic novels": "Graphic Novels & Comics",
+    "graphic novel": "Graphic Novels & Comics",
+    "manga": "Graphic Novels & Comics",
+    # Horror/paranormal
+    "paranormal": "Horror",
+    # Romance variants
+    "chick lit": "Romance",
+    # Religion/spiritual
+    "christian": "Religion & Spirituality",
+    "spirituality": "Religion & Spirituality",
+    "religion": "Religion & Spirituality",
+    # Nonfiction spelling
+    "nonfiction": "Non-Fiction",
+    # Humor
+    "humor": "Contemporary Fiction",
+    "humor and comedy": "Contemporary Fiction",
+    "comedy": "Contemporary Fiction",
+    # Topic-style non-fiction often appearing on Goodreads
+    "travel": "Non-Fiction",
+    "sports": "Non-Fiction",
+    "music": "Non-Fiction",
+    "art": "Non-Fiction",
+    "cookbooks": "Non-Fiction",
+    # LGBTQ buckets (kept broad)
+    "gay and lesbian": "Contemporary Fiction",
+}
+
+# Limits to keep responses tight and useful
+MAX_USER_GENRES = 8
+MAX_SHARED_GENRES = 5
+MAX_RECOMMENDATIONS = 4
+
 def prepare_book_data_for_analysis(user1_books: List[Dict], user2_books: List[Dict]) -> Dict:
     """
     Extract and structure relevant book data for LLM analysis.
@@ -73,6 +163,76 @@ def prepare_book_data_for_analysis(user1_books: List[Dict], user2_books: List[Di
     }
 
 
+def _canonicalize_genre(label: str) -> Optional[str]:
+    """Map a free-form label to the canonical taxonomy if possible."""
+    if not label:
+        return None
+    s = str(label).strip()
+    if not s:
+        return None
+    low = s.lower()
+    if low in GENRE_ALIASES:
+        return GENRE_ALIASES[low]
+    # Try canonical exact match (case-insensitive)
+    for g in GENRE_TAXONOMY:
+        if low == g.lower():
+            return g
+    # Try simple contains heuristics
+    contains_map = {
+        "science": "Science",
+        "philosophy": "Philosophy",
+        "business": "Business",
+        "history": "History",
+        "memoir": "Memoir",
+        "biograph": "Biography",
+        "romance": "Romance",
+        "thriller": "Thriller & Crime",
+        "mystery": "Mystery",
+        "poetry": "Poetry",
+        "horror": "Horror",
+        "fantasy": "Fantasy",
+        "fiction": "Contemporary Fiction",
+    }
+    for k, v in contains_map.items():
+        if k in low and v in GENRE_TAXONOMY:
+            return v
+    return None
+
+
+def _filter_and_cap_genres(genres: List[str], max_len: int) -> List[str]:
+    seen: set = set()
+    out: List[str] = []
+    for g in genres or []:
+        cg = _canonicalize_genre(g)
+        if cg and cg in GENRE_TAXONOMY and cg not in seen:
+            out.append(cg)
+            seen.add(cg)
+        if len(out) >= max_len:
+            break
+    return out
+
+
+def _sanitize_and_finalize(insights: Dict) -> Dict:
+    """Ensure genres are from taxonomy, cap list sizes, and recompute shared_genres."""
+    result = INSIGHT_STRUCTURE.copy()
+    result.update(insights or {})
+
+    gi = result.get("genre_insights", {}) or {}
+    u1 = _filter_and_cap_genres(gi.get("user1_preferences", []), MAX_USER_GENRES)
+    u2 = _filter_and_cap_genres(gi.get("user2_preferences", []), MAX_USER_GENRES)
+    shared = list(sorted(set(u1).intersection(u2)))[:MAX_SHARED_GENRES]
+    recs = (gi.get("recommendations", []) or [])[:MAX_RECOMMENDATIONS]
+
+    result["genre_insights"] = {
+        "user1_preferences": u1,
+        "user2_preferences": u2,
+        "shared_genres": shared,
+        "recommendations": recs,
+    }
+
+    return result
+
+
 def generate_insights_with_llm(book_data: Dict, user1_name: str, user2_name: str, blend_metrics: Dict) -> Dict:
     """
     Generate structured insights using GPT-4o-mini based on book data.
@@ -96,6 +256,15 @@ You must follow these requirements exactly:
 4. Return ONLY a valid JSON object with exactly the structure defined in the "REQUIRED_OUTPUT_FORMAT"
 5. Do not include any explanations or text outside the JSON structure
 6. Every field in the REQUIRED_OUTPUT_FORMAT must be filled
+
+GENRE TAXONOMY (choose only from this list; do NOT invent new labels):
+{json.dumps(GENRE_TAXONOMY, indent=2)}
+
+LIMITS:
+- user1_preferences: up to {MAX_USER_GENRES}
+- user2_preferences: up to {MAX_USER_GENRES}
+- shared_genres: up to {MAX_SHARED_GENRES}, must be intersection of the two user lists
+- recommendations: up to {MAX_RECOMMENDATIONS}
 
 REQUIRED_OUTPUT_FORMAT:
 {{
@@ -126,8 +295,8 @@ REQUIRED_OUTPUT_FORMAT:
 
     # User prompt with the book data
     user_prompt = f"""Analyze the reading preferences for {user1_name} and {user2_name} based on their book data.
-Generate insights about their genre preferences (can have up to 10 genres per user), fiction vs non-fiction ratio, and overall compatibility.
-User the user's actual names in your response. Recommend books that each user might enjoy based on the other's reading history.
+Generate insights about their genre preferences using ONLY the provided GENRE TAXONOMY (do not create new labels), fiction vs non-fiction ratio, and overall compatibility.
+Use the users' actual names in your response. Recommend books that each user might enjoy based on the other's reading history. Respect the LIMITS specified.
 
 USER 1 ({user1_name}) BOOKS:
 {json.dumps(book_data['user1_books'][:30], indent=2)}
@@ -151,15 +320,16 @@ Return the analysis in the exact JSON format specified.
             ],
             temperature=0.3,  # Lower temperature for more consistent results
             response_format={"type": "json_object"},  # Ensure JSON response
-            max_tokens=2000
+            max_tokens=1200
         )
         
         # Parse the response
         insights_text = response.choices[0].message.content
         insights = json.loads(insights_text)
         
-        # Ensure the response matches our expected structure
+        # Ensure the response matches our expected structure and sanitize to taxonomy
         validated_insights = validate_and_structure_insights(insights)
+        validated_insights = _sanitize_and_finalize(validated_insights)
         
         # Add user names
         validated_insights["users"] = {
@@ -243,4 +413,3 @@ def get_ai_insights(user1_books: List[Dict], user2_books: List[Dict],
 if __name__ == "__main__":
     user1_id = "42944663"
     user2_id = "91692289"
-

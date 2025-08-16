@@ -349,6 +349,110 @@ def find_common_books(user1_books, user2_books):
     
     return common_books
 
+def compute_blend_score(df1, df2, metrics, ai_insights):
+    """Compute a single compatibility score (0-100) from existing metrics plus genre similarity.
+    Components: common read books, common authors, shared genres, era similarity, rating proximity,
+    median page length proximity, average publication year proximity.
+    Returns a dict with the score, components, and weights.
+    """
+    # Safely fetch needed metrics
+    u1_read = metrics.get("user1_read_count") or 0
+    u2_read = metrics.get("user2_read_count") or 0
+    common_read_books = metrics.get("common_read_books_count") or 0
+
+    # Common books similarity: give partial credit for any-shelf overlap, full credit for read-read
+    denom_rr = max(1, min(u1_read, u2_read))
+    sim_rr = min(1.0, common_read_books / denom_rr) if denom_rr > 0 else 0.0
+    any_common = metrics.get("common_books_count") or 0
+    u1_total = metrics.get("user1_total_book_count") or 0
+    u2_total = metrics.get("user2_total_book_count") or 0
+    denom_any = max(1, min(u1_total, u2_total))
+    sim_any = min(1.0, any_common / denom_any) if denom_any > 0 else 0.0
+    # Blend: prioritize read-read, but keep 30% weight for any overlap
+    sim_common_books = 0.7 * sim_rr + 0.3 * sim_any
+
+    # Common authors similarity (over union of authors)
+    u1_authors = set(df1["author"].dropna())
+    u2_authors = set(df2["author"].dropna())
+    union_authors = len(u1_authors.union(u2_authors)) or 1
+    overlap_authors = metrics.get("common_authors_count") or 0
+    sim_common_authors = min(1.0, overlap_authors / union_authors)
+
+    # Genre similarity from ai_insights (already normalized to taxonomy)
+    gi = (ai_insights or {}).get("genre_insights", {}) or {}
+    u1_genres = gi.get("user1_preferences", []) or []
+    u2_genres = gi.get("user2_preferences", []) or []
+    shared_genres = gi.get("shared_genres", []) or []
+    denom_genres = max(1, min(len(u1_genres), len(u2_genres)))
+    sim_genre = min(1.0, len(shared_genres) / denom_genres) if denom_genres > 0 else 0.0
+
+    # Era similarity already in [0,100]
+    sim_era = (metrics.get("era_similarity") or 0) / 100.0
+
+    # Rating proximity similarity (normalize diff on 0..4 scale since Goodreads uses 1..5)
+    u1_avg_rating = metrics.get("user1_avg_rating")
+    u2_avg_rating = metrics.get("user2_avg_rating")
+    if u1_avg_rating is not None and u2_avg_rating is not None:
+        rating_diff = abs(u1_avg_rating - u2_avg_rating)
+        sim_rating = max(0.0, 1.0 - (rating_diff / 4.0))
+    else:
+        sim_rating = 0.5  # neutral if insufficient data
+
+    # Median page length similarity (cap differences at 400 pages)
+    u1_med_pages = metrics.get("user1_median_page_length")
+    u2_med_pages = metrics.get("user2_median_page_length")
+    if u1_med_pages is not None and u2_med_pages is not None:
+        pages_diff = abs(u1_med_pages - u2_med_pages)
+        sim_length = max(0.0, 1.0 - min(1.0, pages_diff / 400.0))
+    else:
+        sim_length = 0.5
+
+    # Publication year preference similarity (cap differences at 50 years)
+    u1_avg_year = metrics.get("user1_avg_pub_year")
+    u2_avg_year = metrics.get("user2_avg_pub_year")
+    if u1_avg_year is not None and u2_avg_year is not None:
+        year_diff = abs(u1_avg_year - u2_avg_year)
+        sim_year = max(0.0, 1.0 - min(1.0, year_diff / 50.0))
+    else:
+        sim_year = 0.5
+
+    # Weights (sum to 1.0). Emphasize overlap and genres as primary signals.
+    weights = {
+        "common_books": 0.25,
+        "common_authors": 0.10,
+        "genres": 0.25,
+        "era": 0.15,
+        "rating": 0.10,
+        "length": 0.10,
+        "year": 0.05,
+    }
+
+    score = (
+        sim_common_books * weights["common_books"] +
+        sim_common_authors * weights["common_authors"] +
+        sim_genre * weights["genres"] +
+        sim_era * weights["era"] +
+        sim_rating * weights["rating"] +
+        sim_length * weights["length"] +
+        sim_year * weights["year"]
+    ) * 100.0
+
+    return {
+        "score": round(float(score), 1),
+        "components": {
+            "common_books": round(sim_common_books, 3),
+            "common_authors": round(sim_common_authors, 3),
+            "genres": round(sim_genre, 3),
+            "era": round(sim_era, 3),
+            "rating": round(sim_rating, 3),
+            "length": round(sim_length, 3),
+            "year": round(sim_year, 3),
+        },
+        "weights": weights,
+        "explanation": "Weighted blend of overlap, shared genres, era alignment, rating proximity, page-length, and recency preferences",
+        "version": "1.1"
+    }
+
 def blend_two_users(user_id1, user_id2, shelf="all", include_books=False):
     """
     Fetch Goodreads shelves for two users in parallel and return a combined JSON output
@@ -428,7 +532,7 @@ def blend_two_users(user_id1, user_id2, shelf="all", include_books=False):
     # Add common metrics
     combined_results.update(common_metrics)
     
-    # Generate AI insights based on books and metrics
+    # Generate AI insights based on books and metrics (used by blend score for genres)
     ai_insights = get_ai_insights(
         user1_books=user1_books,
         user2_books=user2_books,
@@ -439,6 +543,9 @@ def blend_two_users(user_id1, user_id2, shelf="all", include_books=False):
     
     # Add AI insights to combined results
     combined_results["ai_insights"] = ai_insights
+    
+    # Compute and attach final blend score (uses full dataframes, metrics, and ai_insights genres)
+    combined_results["blend"] = compute_blend_score(df1, df2, blend_metrics, ai_insights)
     
     # Only include all books if requested
     if include_books:
