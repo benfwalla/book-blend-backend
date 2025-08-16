@@ -13,9 +13,19 @@ Since the RSS feed doesn't include desirable metadata, namely the genre of each 
 - **Genres constrained:** The AI is instructed to choose only from our small, curated genre list; we map aliases to that list.
 
 ### What goes into the score
-We compute a few component scores between 0 and 1, then combine them with weights. Finally, we scale to 0–100:
+We compute a few component scores between 0 and 1, then combine them with weights to produce a raw score in 0–100. We then apply a gentle calibration so the user-facing number is easier to interpret (more like Spotify Blend).
 
-`score = 100 × [0.25×common_books + 0.10×common_authors + 0.25×genres + 0.15×era + 0.10×rating + 0.10×length + 0.05×year]`
+Raw weighted score:
+
+`raw = 100 × [0.25×common_books + 0.10×common_authors + 0.25×genres + 0.15×era + 0.10×rating + 0.10×length + 0.05×year]`
+
+Calibrated (displayed) score:
+
+`score = clamp(40, 16 + 1.2 × raw, 100)`
+
+- We clamp to a minimum of 40 so even low-overlap pairs don’t “feel like an F,” while still preserving ordering.
+- The affine transform raises mid/high matches into the 80–95 range without altering relative rankings.
+- The API includes both `score` (calibrated) and `score_raw` for transparency.
 
 **Score breakdown:**
 - **Common books (25%):** How much your libraries overlap. Mostly based on books you’ve both read. Also gives partial credit if a title is on any shelf for both (e.g., one read, one to‑read).
@@ -23,5 +33,5 @@ We compute a few component scores between 0 and 1, then combine them with weight
 - **Genres (25%):** How many genres you share from the canonical list, normalized by the smaller person’s list.
 - **Era similarity (15%):** How similarly your reading skews by publication era (e.g., mostly 2010–present vs. classics).
 - **Rating proximity (10%):** How close your average ratings are; closer averages score higher.
-- **Length similarity (10%): H**ow similar your median page lengths are; closer medians score higher.
+- **Length similarity (10%):** How similar your median page lengths are; closer medians score higher.
 - **Year proximity (5%):** How similar your average publication years are.

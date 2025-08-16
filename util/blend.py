@@ -437,8 +437,15 @@ def compute_blend_score(df1, df2, metrics, ai_insights):
         sim_year * weights["year"]
     ) * 100.0
 
+    # Apply a simple calibration so scores are more intuitive for users
+    # Calibrated = clamp(40, 16 + 1.2 * raw, 100)
+    raw_score = float(score)
+    calibrated = 16.0 + 1.2 * raw_score
+    calibrated = max(40.0, min(100.0, calibrated))
+
     return {
-        "score": round(float(score), 1),
+        "score": round(calibrated, 1),
+        "score_raw": round(raw_score, 1),
         "components": {
             "common_books": round(sim_common_books, 3),
             "common_authors": round(sim_common_authors, 3),
