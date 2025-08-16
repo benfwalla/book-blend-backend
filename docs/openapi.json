@@ -415,7 +415,7 @@
                     }
                   },
                   "sparse_data": {
-                    "summary": "Sparse data example (preliminary score)",
+                    "summary": "Sparse data example (AI insights skipped)",
                     "value": {
                       "users": {
                         "170982409": {
@@ -502,62 +502,8 @@
                       "era_similarity": 37.5,
                       "common_authors_count": 6,
                       "ai_insights": {
-                        "genre_insights": {
-                          "user1_preferences": [
-                            "Fantasy",
-                            "Non-Fiction",
-                            "Self-Help",
-                            "Biography",
-                            "Science"
-                          ],
-                          "user2_preferences": [
-                            "Fantasy",
-                            "Non-Fiction",
-                            "Self-Help",
-                            "Biography",
-                            "Science"
-                          ],
-                          "shared_genres": [
-                            "Biography",
-                            "Fantasy",
-                            "Non-Fiction",
-                            "Science",
-                            "Self-Help"
-                          ],
-                          "recommendations": [
-                            "Consider exploring Historical Fiction together",
-                            "Both might enjoy Science books"
-                          ]
-                        },
-                        "fiction_nonfiction": {
-                          "user1_ratio": 0.5,
-                          "user2_ratio": 0.5,
-                          "compatibility": "Both users have an equal preference for fiction and non-fiction, allowing for a balanced reading experience."
-                        },
-                        "reading_style": {
-                          "user1_summary": "Enjoys a mix of fantasy and non-fiction with a focus on personal development.",
-                          "user2_summary": "Shares a similar taste with a blend of fantasy and non-fiction, emphasizing self-improvement.",
-                          "compatibility_score": 0.9,
-                          "compatibility_details": "Their reading styles are highly compatible, reflecting a shared interest in both genres."
-                        },
-                        "book_recommendations": {
-                          "for_both": [
-                            "Title by Author",
-                            "Title by Author"
-                          ],
-                          "for_user1": [
-                            "Title by Author",
-                            "Title by Author"
-                          ],
-                          "for_user2": [
-                            "Title by Author",
-                            "Title by Author"
-                          ]
-                        },
-                        "users": {
-                          "user1": "Donald Bough",
-                          "user2": "Donald Bough"
-                        }
+                        "skip": true,
+                        "reason": "Insufficient data for reliable insights."
                       },
                       "blend": {
                         "score": 100.0,
