@@ -449,8 +449,6 @@ def compute_blend_score(df1, df2, metrics, ai_insights):
             "year": round(sim_year, 3),
         },
         "weights": weights,
-        "explanation": "Weighted blend of overlap, shared genres, era alignment, rating proximity, page-length, and recency preferences",
-        "version": "1.1"
     }
 
 def blend_two_users(user_id1, user_id2, shelf="all", include_books=False):
@@ -532,20 +530,45 @@ def blend_two_users(user_id1, user_id2, shelf="all", include_books=False):
     # Add common metrics
     combined_results.update(common_metrics)
     
-    # Generate AI insights based on books and metrics (used by blend score for genres)
-    ai_insights = get_ai_insights(
-        user1_books=user1_books,
-        user2_books=user2_books,
-        user1_name=user1_info["name"],
-        user2_name=user2_info["name"],
-        blend_metrics=blend_metrics
-    )
-    
-    # Add AI insights to combined results
-    combined_results["ai_insights"] = ai_insights
+    # Assess data quality and optionally skip AI insights if data is very sparse for both users
+    u1_total = blend_metrics.get("user1_total_book_count") or 0
+    u2_total = blend_metrics.get("user2_total_book_count") or 0
+    u1_read_count = blend_metrics.get("user1_read_count") or 0
+    u2_read_count = blend_metrics.get("user2_read_count") or 0
+
+    def _status(total, read):
+        if total < 5 or read < 3:
+            return "low"
+        if total < 10 or read < 5:
+            return "moderate"
+        return "ok"
+
+    u1_status = _status(u1_total, u1_read_count)
+    u2_status = _status(u2_total, u2_read_count)
+    preliminary = u1_status != "ok" or u2_status != "ok"
+
+    # If both users are very sparse, skip AI to save latency/cost
+    skip_ai = (u1_status == "low" and u2_status == "low")
+
+    if skip_ai:
+        ai_insights = {"skipped": True, "reason": "insufficient_data"}
+    else:
+        # Generate AI insights based on books and metrics (used by blend score for genres)
+        ai_insights = get_ai_insights(
+            user1_books=user1_books,
+            user2_books=user2_books,
+            user1_name=user1_info["name"],
+            user2_name=user2_info["name"],
+            blend_metrics=blend_metrics
+        )
     
     # Compute and attach final blend score (uses full dataframes, metrics, and ai_insights genres)
-    combined_results["blend"] = compute_blend_score(df1, df2, blend_metrics, ai_insights)
+    combined_results["blend"] = compute_blend_score(df1, df2, blend_metrics, ai_insights if not skip_ai else {})
+    
+    # If data is sparse for either user, mark blend as preliminary with a short note
+    if preliminary:
+        combined_results["blend"]["preliminary"] = True
+        combined_results["blend"]["note"] = "Limited data for one or both users; score may be less stable."
     
     # Only include all books if requested
     if include_books:
