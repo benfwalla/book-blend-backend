@@ -1,8 +1,19 @@
 import requests
 from bs4 import BeautifulSoup
 
-def get_goodreads_user_info(user_id):
-    user_url = f"https://www.goodreads.com/user/show/{user_id}"
+def get_goodreads_user_info(user_id=None, username=None):
+    if not user_id and not username:
+        raise ValueError("Either user_id or username must be provided")
+    if user_id and username:
+        raise ValueError("Provide either user_id or username, not both")
+    
+    if username:
+        user_url = f"https://www.goodreads.com/{username}"
+        # We'll extract the actual user_id from the response for consistency
+        actual_user_id = username  # Will be updated after parsing
+    else:
+        user_url = f"https://www.goodreads.com/user/show/{user_id}"
+        actual_user_id = user_id
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
@@ -17,9 +28,10 @@ def get_goodreads_user_info(user_id):
     user_info = {
         "name": "",
         "image_url": "",
-        "id": user_id,
+        "id": actual_user_id,
         "profile_url": user_url,
-        "book_count": ""
+        "book_count": "",
+        "username": ""
     }
     
     # Get name from og:title
@@ -39,6 +51,23 @@ def get_goodreads_user_info(user_id):
         if " has " in description and " books on Goodreads" in description:
             book_count_part = description.split(" has ")[1].split(" books on Goodreads")[0]
             user_info["book_count"] = book_count_part
+    
+    # Get username from profile:username
+    profile_username = soup.find("meta", property="profile:username")
+    if profile_username:
+        user_info["username"] = profile_username.get("content", "")
+    
+    # If we used username to access the page, extract the actual user_id from the URL
+    if username:
+        # Look for canonical URL or user profile links to extract the numeric user_id
+        canonical_link = soup.find("link", rel="canonical")
+        if canonical_link:
+            canonical_url = canonical_link.get("href", "")
+            if "/user/show/" in canonical_url:
+                # Extract user_id from URL like https://www.goodreads.com/user/show/113735659-mark-o-connell
+                user_id_part = canonical_url.split("/user/show/")[1].split("-")[0]
+                user_info["id"] = user_id_part
+                actual_user_id = user_id_part
 
     # Parse friends
     friends = []
@@ -99,6 +128,12 @@ def get_goodreads_user_info(user_id):
 
 
 if __name__ == "__main__":
+    # Test with user_id
     user_id = "42944663"
-    result = get_goodreads_user_info(user_id)
-    print(result)
+    result = get_goodreads_user_info(user_id=user_id)
+    print("Result with user_id:", result)
+    
+    # Test with username (uncomment to test)
+    # username = "markoconnell"
+    # result = get_goodreads_user_info(username=username)
+    # print("Result with username:", result)

@@ -91,7 +91,7 @@ def get_books(
 @app.get(
     "/user",
     summary="Get User Info",
-    description="Fetches metadata about a Goodreads user, including name and profile information.",
+    description="Fetches metadata about a Goodreads user, including name and profile information. Accepts either user_id or username.",
     responses={
         200: {
             "description": "User info with friends list",
@@ -133,10 +133,16 @@ def get_books(
     }
 )
 def get_user_info(
-    user_id: str = Query(..., description="The Goodreads user ID.")
+    user_id: str = Query(None, description="The Goodreads user ID."),
+    username: str = Query(None, description="The Goodreads username.")
 ) -> JSONResponse:
     try:
-        raw_data = get_goodreads_user_info(user_id=user_id)
+        if not user_id and not username:
+            return JSONResponse(status_code=400, content={"error": "Either user_id or username must be provided"})
+        if user_id and username:
+            return JSONResponse(status_code=400, content={"error": "Provide either user_id or username, not both"})
+        
+        raw_data = get_goodreads_user_info(user_id=user_id, username=username)
         return JSONResponse(content=raw_data)
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
