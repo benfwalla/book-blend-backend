@@ -101,19 +101,30 @@
     "/user": {
       "get": {
         "summary": "Get User Info",
-        "description": "Fetches metadata about a Goodreads user, including name and profile information.",
+        "description": "Fetches metadata about a Goodreads user, including name and profile information. Accepts either user_id or username.",
         "operationId": "get_user_info_user_get",
         "parameters": [
           {
             "name": "user_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "string",
               "description": "The Goodreads user ID.",
               "title": "User Id"
             },
             "description": "The Goodreads user ID."
+          },
+          {
+            "name": "username",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "The Goodreads username.",
+              "title": "Username"
+            },
+            "description": "The Goodreads username."
           }
         ],
         "responses": {
@@ -463,71 +474,150 @@
                       },
                       "common_books": [
                         {
-                          "book_id": "53504553",
-                          "title": "Science and Development of Muscle Hypertrophy",
-                          "author": "Brad Schoenfeld",
-                          "link": "https://www.goodreads.com/book/show/53504553",
-                          "image": "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/books/1590611337l/53504553._SX318_.jpg",
-                          "user1_rating": 0,
-                          "user2_rating": 0,
+                          "book_id": "5907",
+                          "title": "The Hobbit, or There and Back Again",
+                          "author": "J.R.R. Tolkien",
+                          "link": "https://www.goodreads.com/book/show/5907",
+                          "image": "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/books/1546071216l/5907.jpg",
+                          "user1_rating": 4,
+                          "user2_rating": 3,
+                          "user1_review": "Finally got around to reading this classic!",
+                          "user2_review": "",
+                          "user1_shelves": "read",
+                          "user2_shelves": "read",
+                          "average_rating": 4.29,
+                          "publication_year": 1937.0
+                        },
+                        {
+                          "book_id": "77203",
+                          "title": "The Kite Runner",
+                          "author": "Khaled Hosseini",
+                          "link": "https://www.goodreads.com/book/show/77203",
+                          "image": "https://i.gr-assets.com/images/S/compressed.photo.goodreads.com/books/1579036753l/77203._SY475_.jpg",
+                          "user1_rating": 4,
+                          "user2_rating": 5,
                           "user1_review": "",
                           "user2_review": "",
-                          "user1_shelves": "currently-reading",
-                          "user2_shelves": "currently-reading",
-                          "average_rating": 4.64,
-                          "publication_year": 2016.0
+                          "user1_shelves": "read",
+                          "user2_shelves": "read",
+                          "average_rating": 4.34,
+                          "publication_year": 2003.0
                         }
                       ],
                       "common_authors": [
                         {
-                          "author": "Stephen King",
+                          "author": "J.R.R. Tolkien",
                           "user1_books": [
                             {
-                              "title": "The Gunslinger (The Dark Tower, #1)",
-                              "shelves": "currently-reading",
-                              "book_id": "59359648"
+                              "title": "The Hobbit, or There and Back Again",
+                              "shelves": "read",
+                              "book_id": "5907"
+                            },
+                            {
+                              "title": "The Lord of the Rings",
+                              "shelves": "read",
+                              "book_id": "33"
                             }
                           ],
                           "user2_books": [
                             {
-                              "title": "The Gunslinger (The Dark Tower, #1)",
-                              "shelves": "currently-reading",
-                              "book_id": "59359648"
+                              "title": "The Hobbit, or There and Back Again",
+                              "shelves": "read",
+                              "book_id": "5907"
+                            }
+                          ]
+                        },
+                        {
+                          "author": "Khaled Hosseini",
+                          "user1_books": [
+                            {
+                              "title": "The Kite Runner",
+                              "shelves": "read",
+                              "book_id": "77203"
+                            }
+                          ],
+                          "user2_books": [
+                            {
+                              "title": "The Kite Runner",
+                              "shelves": "read",
+                              "book_id": "77203"
                             }
                           ]
                         }
                       ],
-                      "common_books_count": 8,
-                      "common_read_books_count": 4,
-                      "era_similarity": 37.5,
-                      "common_authors_count": 6,
+                      "common_books_count": 14,
+                      "common_read_books_count": 10,
+                      "era_similarity": 26.2,
+                      "common_authors_count": 17,
                       "ai_insights": {
-                        "skip": true,
-                        "reason": "Insufficient data for reliable insights."
+                        "genre_insights": {
+                          "user1_preferences": [
+                            "Non-Fiction",
+                            "Science Fiction",
+                            "Fantasy",
+                            "Historical Fiction"
+                          ],
+                          "user2_preferences": [
+                            "Non-Fiction",
+                            "Fantasy",
+                            "Literary Fiction",
+                            "Science Fiction"
+                          ],
+                          "shared_genres": [
+                            "Fantasy",
+                            "Non-Fiction",
+                            "Science Fiction"
+                          ],
+                          "recommendations": [
+                            "Consider exploring Historical Fiction together",
+                            "Both might enjoy Science books"
+                          ]
+                        },
+                        "fiction_nonfiction": {
+                          "user1_ratio": 0.68,
+                          "user2_ratio": 0.25,
+                          "compatibility": "User1 prefers fiction while User2 favors non-fiction. Great opportunity to expand horizons."
+                        },
+                        "reading_style": {
+                          "user1_summary": "Reads contemporary and classic works with character-driven narratives.",
+                          "user2_summary": "Favors literary fiction and non-fiction with themes of identity.",
+                          "compatibility_score": 0.7,
+                          "compatibility_details": "Both appreciate well-crafted narratives and character development."
+                        },
+                        "book_recommendations": {
+                          "for_both": [
+                            "Dune by Frank Herbert",
+                            "Circe by Madeline Miller"
+                          ],
+                          "for_user1": [
+                            "The Devil in the White City by Erik Larson"
+                          ],
+                          "for_user2": [
+                            "The Song of Achilles by Madeline Miller"
+                          ]
+                        }
                       },
                       "blend": {
-                        "score": 100.0,
-                        "score_raw": 90.6,
+                        "score": 83.4,
+                        "score_raw": 56.2,
                         "components": {
-                          "common_books": 1.0,
-                          "common_authors": 1.0,
-                          "genres": 1.0,
-                          "era": 0.375,
-                          "rating": 1.0,
-                          "length": 1.0,
-                          "year": 1.0
+                          "common_books": 0.553,
+                          "common_authors": 0.508,
+                          "genres": 0.6,
+                          "era": 0.262,
+                          "rating": 0.927,
+                          "length": 0.853,
+                          "year": 0.42
                         },
                         "weights": {
-                          "common_books": 0.25,
-                          "common_authors": 0.1,
-                          "genres": 0.25,
-                          "era": 0.15,
-                          "rating": 0.1,
-                          "length": 0.1,
-                          "year": 0.05
-                        },
-                        "preliminary": true,
-                        "note": "Limited data for one or both users; score may be less stable."
+                          "common_books": 0.3,
+                          "common_authors": 0.25,
+                          "genres": 0.2,
+                          "era": 0.1,
+                          "rating": 0.05,
+                          "length": 0.08,
+                          "year": 0.02
+                        }
                       }
                     }
                   }
