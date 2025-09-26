@@ -267,8 +267,8 @@ LIMITS:
 REQUIRED_OUTPUT_FORMAT:
 {{
   "genre_insights": {{
-    "user1_preferences": ["Genre1", "Genre2", "Genre3"],
-    "user2_preferences": ["Genre1", "Genre2", "Genre3"],
+    "user1_preferences": ["Genre1", "Genre2", "Genre3", "Genre4", "Genre5"],
+    "user2_preferences": ["Genre1", "Genre2", "Genre3", "Genre4", "Genre5"],
     "shared_genres": ["Genre1", "Genre3"],
     "recommendations": ["Consider exploring Historical Fiction together", "Both might enjoy Science books"]
   }},
@@ -306,10 +306,10 @@ CRITICAL: For book recommendations, you MUST:
 Respect the LIMITS specified.
 
 USER 1 ({user1_name}) BOOKS:
-{json.dumps(book_data['user1_books'], indent=2)}
+{json.dumps(book_data['user1_books'][:200], indent=2)}
 
 USER 2 ({user2_name}) BOOKS:
-{json.dumps(book_data['user2_books'], indent=2)}
+{json.dumps(book_data['user2_books'][:200], indent=2)}
 
 BLEND METRICS:
 {json.dumps(blend_metrics, indent=2)}
@@ -325,8 +325,8 @@ Return the analysis in the exact JSON format specified.
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.3,  # Lower temperature for more consistent results
-            response_format={"type": "json_object"},  # Ensure JSON response
+            temperature=0.0,
+            response_format={"type": "json_object"},
             max_tokens=1200
         )
         
@@ -347,7 +347,6 @@ Return the analysis in the exact JSON format specified.
         return validated_insights
         
     except Exception as e:
-        # Fallback with error message
         return {
             "error": f"Failed to generate AI insights: {str(e)}",
             "insights": INSIGHT_STRUCTURE

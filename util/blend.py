@@ -351,8 +351,7 @@ def find_common_books(user1_books, user2_books):
 
 def compute_blend_score(df1, df2, metrics, ai_insights):
     """Compute a single compatibility score (0-100) from existing metrics plus genre similarity.
-    Components: common read books, common authors, shared genres, era similarity, rating proximity,
-    median page length proximity, average publication year proximity.
+    Uses library-size-aware scoring that rewards meaningful overlap regardless of collection size.
     Returns a dict with the score, components, and weights.
     """
     # Safely fetch needed metrics
@@ -360,23 +359,43 @@ def compute_blend_score(df1, df2, metrics, ai_insights):
     u2_read = metrics.get("user2_read_count") or 0
     common_read_books = metrics.get("common_read_books_count") or 0
 
-    # Common books similarity: give partial credit for any-shelf overlap, full credit for read-read
-    denom_rr = max(1, min(u1_read, u2_read))
-    sim_rr = min(1.0, common_read_books / denom_rr) if denom_rr > 0 else 0.0
-    any_common = metrics.get("common_books_count") or 0
-    u1_total = metrics.get("user1_total_book_count") or 0
-    u2_total = metrics.get("user2_total_book_count") or 0
-    denom_any = max(1, min(u1_total, u2_total))
-    sim_any = min(1.0, any_common / denom_any) if denom_any > 0 else 0.0
-    # Blend: prioritize read-read, but keep 30% weight for any overlap
-    sim_common_books = 0.7 * sim_rr + 0.3 * sim_any
+    # Common books similarity: context-aware scoring
+    # Use percentage of smaller library, but with bonuses for absolute numbers
+    min_read = min(u1_read, u2_read)
+    if min_read > 0 and common_read_books > 0:
+        # Base score: percentage of smaller library
+        base_overlap = common_read_books / min_read
+        
+        # Bonus for absolute overlap (more shared books = higher compatibility)
+        # Logarithmic bonus to prevent runaway scores
+        import math
+        absolute_bonus = math.log(1 + common_read_books) / 10  # Max ~0.3 bonus
+        
+        # Library size bonus (reward users with substantial libraries)
+        size_bonus = min(0.1, (min_read - 10) / 200) if min_read > 10 else 0
+        
+        sim_common_books = min(1.0, base_overlap + absolute_bonus + size_bonus)
+    else:
+        sim_common_books = 0.0
 
-    # Common authors similarity (over union of authors)
+    # Common authors similarity: intersection over minimum, not union
+    # This rewards shared taste rather than penalizing broad reading
     u1_authors = set(df1["author"].dropna())
     u2_authors = set(df2["author"].dropna())
-    union_authors = len(u1_authors.union(u2_authors)) or 1
+    min_authors = min(len(u1_authors), len(u2_authors)) or 1
     overlap_authors = metrics.get("common_authors_count") or 0
-    sim_common_authors = min(1.0, overlap_authors / union_authors)
+    
+    if overlap_authors > 0:
+        # Base score: percentage of smaller author collection
+        base_author_overlap = overlap_authors / min_authors
+        
+        # Bonus for absolute author overlap
+        import math
+        author_bonus = math.log(1 + overlap_authors) / 15  # Max ~0.2 bonus
+        
+        sim_common_authors = min(1.0, base_author_overlap + author_bonus)
+    else:
+        sim_common_authors = 0.0
 
     # Genre similarity from ai_insights (already normalized to taxonomy)
     gi = (ai_insights or {}).get("genre_insights", {}) or {}
@@ -416,15 +435,15 @@ def compute_blend_score(df1, df2, metrics, ai_insights):
     else:
         sim_year = 0.5
 
-    # Weights (sum to 1.0). Emphasize overlap and genres as primary signals.
+    # Weights (sum to 1.0). Prioritize actual reading overlap with context-aware scoring.
     weights = {
-        "common_books": 0.25,
-        "common_authors": 0.10,
-        "genres": 0.25,
-        "era": 0.15,
-        "rating": 0.10,
-        "length": 0.10,
-        "year": 0.05,
+        "common_books": 0.30,     # Highest - shared books with library-size context
+        "common_authors": 0.25,   # Second - shared authors with overlap bonuses  
+        "genres": 0.20,           # Third - AI-generated genre compatibility
+        "era": 0.10,              # Historical period preferences
+        "rating": 0.05,           # Rating standards similarity
+        "length": 0.08,           # Book length preferences
+        "year": 0.02,             # Publication year preferences
     }
 
     score = (
