@@ -35,7 +35,7 @@ The `/blend` endpoint calculates a compatibility score (0-100) based on multiple
 
 ### Score Components & Weights:
 1. **Shared Books (30%)** - Books both users have read
-   - *Example: If you've both read 10 books out of your 50-book library, that's 20% overlap*
+   - *Example: User A has 200 books, User B has 50 books. They share 10 books. Score is based on 10/50 = 20% (using the smaller library)*
    
 2. **Common Authors (25%)** - Authors both users enjoy
    - *Example: You both love J.R.R. Tolkien, Stephen King, and 15 other authors*
