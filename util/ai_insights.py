@@ -38,7 +38,6 @@ INSIGHT_STRUCTURE = {
 # Canonical genre taxonomy (balanced, compressed, UI-friendly)
 # Frontend and scoring will rely on these exact strings.
 GENRE_TAXONOMY: List[str] = [
-    # Fiction
     "Literary Fiction",
     "Contemporary Fiction",
     "Classics",
@@ -51,7 +50,6 @@ GENRE_TAXONOMY: List[str] = [
     "Romance",
     "Young Adult",
     "Graphic Novels & Comics",
-    # Non-Fiction
     "Non-Fiction",
     "Memoir",
     "Biography",
@@ -283,26 +281,35 @@ REQUIRED_OUTPUT_FORMAT:
     "user1_summary": "Tends to read contemporary bestsellers with high ratings",
     "user2_summary": "Favors classics and literary fiction with diverse themes",
     "compatibility_score": 0.65,
-    "compatibility_details": "While their genre preferences differ, both show appreciation for well-crafted narratives and character-driven stories."
+    "compatibility_details": "while their genre preferences differ, both show appreciation for well-crafted narratives and character-driven stories."
   }},
   "book_recommendations": {{
-    "for_both": ["Title by Author", "Title by Author"],
-    "for_user1": ["Title by Author", "Title by Author"],
-    "for_user2": ["Title by Author", "Title by Author"]
+    "for_both": ["Book Title 1 by Author Name", "Book Title 2 by Author Name"],
+    "for_user1": ["Book Title 3 by Author Name", "Book Title 4 by Author Name"],
+    "for_user2": ["Book Title 5 by Author Name", "Book Title 6 by Author Name"]
   }}
 }}
 """
-
     # User prompt with the book data
     user_prompt = f"""Analyze the reading preferences for {user1_name} and {user2_name} based on their book data.
 Generate insights about their genre preferences using ONLY the provided GENRE TAXONOMY (do not create new labels), fiction vs non-fiction ratio, and overall compatibility.
-Use the users' actual names in your response. Recommend books that each user might enjoy based on the other's reading history. Respect the LIMITS specified.
+Use the users' actual names in your response. 
+
+CRITICAL: For book recommendations, you MUST:
+1. Analyze each user's actual reading history and preferences
+2. Recommend SPECIFIC, REAL books that align with their tastes
+3. DO NOT use placeholder text or copy examples from the format
+4. Base recommendations on patterns you see in their libraries
+5. Consider books that complement their shared interests and individual preferences
+6. Each recommendation should be a real book title with the actual author's name
+
+Respect the LIMITS specified.
 
 USER 1 ({user1_name}) BOOKS:
-{json.dumps(book_data['user1_books'][:30], indent=2)}
+{json.dumps(book_data['user1_books'], indent=2)}
 
 USER 2 ({user2_name}) BOOKS:
-{json.dumps(book_data['user2_books'][:30], indent=2)}
+{json.dumps(book_data['user2_books'], indent=2)}
 
 BLEND METRICS:
 {json.dumps(blend_metrics, indent=2)}
