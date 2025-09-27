@@ -320,10 +320,11 @@ CRITICAL FOR GENRE ANALYSIS:
 5. The shared_genres should be the intersection of the two users' preferences
 6. DO NOT leave genre arrays empty unless there are truly no books to analyze
 
-CRITICAL: For book recommendations:
-- "for_user1": Recommend books from User2's list that User1 hasn't read but would likely enjoy
-- "for_user2": Recommend books from User1's list that User2 hasn't read but would likely enjoy  
-- "for_both": Recommend new books that NEITHER user has read, based on their shared interests
+CRITICAL: For book recommendations - YOU MUST PROVIDE REAL, SPECIFIC BOOK TITLES AND AUTHORS:
+- "for_user1": Recommend REAL books from User2's reading list that User1 hasn't read but would likely enjoy based on User1's preferences
+- "for_user2": Recommend REAL books from User1's reading list that User2 hasn't read but would likely enjoy based on User2's preferences
+- "for_both": Recommend REAL, well-known books that NEITHER user has read, based on their shared interests and genres
+- Do NOT use placeholder text like "Book Title 1 by Author Name". Use actual book titles and authors (i.e. "The Seven Husbands of Evelyn Hugo by Taylor Jenkins Reid"). Every recommendation must be a real, published book with the exact title and author name.
 
 Respect the LIMITS specified.
 
