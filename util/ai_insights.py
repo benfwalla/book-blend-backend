@@ -126,34 +126,51 @@ MAX_RECOMMENDATIONS = 4
 def prepare_book_data_for_analysis(user1_books: List[Dict], user2_books: List[Dict]) -> Dict:
     """
     Extract and structure relevant book data for LLM analysis.
+    Only includes books that are on the "read" shelf to ensure we analyze completed books.
     
     Args:
         user1_books: List of books from first user
         user2_books: List of books from second user
         
     Returns:
-        Dictionary with structured book data
+        Dictionary with structured book data (only "read" books)
     """
-    # Extract just the necessary fields to keep prompt size manageable
+    def is_read_book(book: Dict) -> bool:
+        """Check if a book is on the 'read' shelf."""
+        shelves = book.get("user_shelves", [])
+        
+        # Handle shelves as a string (e.g., "read")
+        if isinstance(shelves, str):
+            return shelves.lower() == "read"
+        
+        # Handle shelves as a list (e.g., ["read", "fantasy"])
+        if isinstance(shelves, list):
+            return "read" in [shelf.lower() for shelf in shelves]
+        
+        return False
+    
+    # Extract just the necessary fields and filter for "read" books only
     user1_processed = []
-    for book in user1_books[:100]:  # Limit to 100 books to avoid context limits
-        user1_processed.append({
-            "title": book.get("title", "Unknown"),
-            "author": book.get("author", "Unknown"),
-            "shelves": book.get("shelves", []),
-            "user_rating": book.get("user_rating", None),
-            "publication_year": book.get("publication_year", None)
-        })
+    for book in user1_books:
+        if is_read_book(book):
+            user1_processed.append({
+                "title": book.get("title", "Unknown"),
+                "author": book.get("author", "Unknown"),
+                "shelves": book.get("shelves", []),
+                "user_rating": book.get("user_rating", None),
+                "publication_year": book.get("publication_year", None)
+            })
     
     user2_processed = []
-    for book in user2_books[:100]:
-        user2_processed.append({
-            "title": book.get("title", "Unknown"),
-            "author": book.get("author", "Unknown"),
-            "shelves": book.get("shelves", []),
-            "user_rating": book.get("user_rating", None),
-            "publication_year": book.get("publication_year", None)
-        })
+    for book in user2_books:
+        if is_read_book(book):
+            user2_processed.append({
+                "title": book.get("title", "Unknown"),
+                "author": book.get("author", "Unknown"),
+                "shelves": book.get("shelves", []),
+                "user_rating": book.get("user_rating", None),
+                "publication_year": book.get("publication_year", None)
+            })
     
     return {
         "user1_books": user1_processed,
@@ -295,27 +312,32 @@ REQUIRED_OUTPUT_FORMAT:
 Generate insights about their genre preferences using ONLY the provided GENRE TAXONOMY (do not create new labels), fiction vs non-fiction ratio, and overall compatibility.
 Use the users' actual names in your response. 
 
-CRITICAL: For book recommendations, you MUST:
-1. Analyze each user's actual reading history and preferences
-2. Recommend SPECIFIC, REAL books that align with their tastes
-3. DO NOT use placeholder text or copy examples from the format
-4. Base recommendations on patterns you see in their libraries
-5. Consider books that complement their shared interests and individual preferences
-6. Each recommendation should be a real book title with the actual author's name
+CRITICAL FOR GENRE ANALYSIS:
+1. Look at the book titles, authors, and any shelf information to infer genres
+2. For each user, identify their TOP genres from the GENRE TAXONOMY based on the books they've read
+3. Map books like "Dune" → "Science Fiction", "The Hobbit" → "Fantasy", "When Breath Becomes Air" → "Memoir", etc.
+4. You MUST populate the user1_preferences and user2_preferences arrays with genres from the taxonomy
+5. The shared_genres should be the intersection of the two users' preferences
+6. DO NOT leave genre arrays empty unless there are truly no books to analyze
+
+CRITICAL: For book recommendations:
+- "for_user1": Recommend books from User2's list that User1 hasn't read but would likely enjoy
+- "for_user2": Recommend books from User1's list that User2 hasn't read but would likely enjoy  
+- "for_both": Recommend new books that NEITHER user has read, based on their shared interests
 
 Respect the LIMITS specified.
 
-USER 1 ({user1_name}) BOOKS:
-{json.dumps(book_data['user1_books'][:200], indent=2)}
+USER 1 ({user1_name}) read books:
+{chr(10).join([f"{book.get('title', 'Unknown')} by {book.get('author', 'Unknown')}" for book in book_data['user1_books']])}
 
-USER 2 ({user2_name}) BOOKS:
-{json.dumps(book_data['user2_books'][:200], indent=2)}
-
-BLEND METRICS:
-{json.dumps(blend_metrics, indent=2)}
+USER 2 ({user2_name}) read books:
+{chr(10).join([f"{book.get('title', 'Unknown')} by {book.get('author', 'Unknown')}" for book in book_data['user2_books']])}
 
 Return the analysis in the exact JSON format specified.
 """
+
+    # Debug: Print what's actually being sent to the AI
+    print(user_prompt)
 
     try:
         # Call the OpenAI API with GPT-4o-mini
