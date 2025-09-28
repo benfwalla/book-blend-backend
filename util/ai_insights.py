@@ -38,6 +38,7 @@ INSIGHT_STRUCTURE = {
 # Canonical genre taxonomy (balanced, compressed, UI-friendly)
 # Frontend and scoring will rely on these exact strings.
 GENRE_TAXONOMY: List[str] = [
+    # Core - Fiction
     "Literary Fiction",
     "Contemporary Fiction",
     "Classics",
@@ -48,74 +49,35 @@ GENRE_TAXONOMY: List[str] = [
     "Thriller & Crime",
     "Horror",
     "Romance",
-    "Young Adult",
-    "Graphic Novels & Comics",
+
+    # Core - Nonfiction
     "Memoir",
     "Biography",
     "History",
     "Philosophy",
     "Psychology",
     "Self-Help",
-    "Business",
-    "Science",
+    "Business & Economics",
+    "Science & Technology",
     "Poetry",
     "Religion & Spirituality",
+
+    # Flexible - Audience/Form
+    "Young Adult",
+    "New Adult",
+    "Middle Grade",
+    "Children’s",
+    "Short Stories & Essays",
+    "Graphic Novels & Comics",
+
+    # Flexible - Identity/Theme
+    "LGBTQ+",
+    "Cultural & Regional Literature",
+    "True Crime",
+    "Health, Food & Lifestyle"
 ]
 
-# Alias/normalization mapping (lowercased keys) → canonical taxonomy
-GENRE_ALIASES: Dict[str, str] = {
-    # Sci-fi variants
-    "sci-fi": "Science Fiction",
-    "scifi": "Science Fiction",
-    "sci fi": "Science Fiction",
-    # YA/children
-    "ya": "Young Adult",
-    "young adult": "Young Adult",
-    "children": "Young Adult",
-    "children's": "Young Adult",
-    # Self-help variants
-    "self help": "Self-Help",
-    # Biography/memoir
-    "bio": "Biography",
-    "autobiography": "Memoir",
-    # Fiction buckets
-    "lit fic": "Literary Fiction",
-    "litfic": "Literary Fiction",
-    "contemporary": "Contemporary Fiction",
-    "fiction": "Contemporary Fiction",
-    "classics": "Classics",
-    # Crime/thriller/suspense
-    "crime": "Thriller & Crime",
-    "suspense": "Thriller & Crime",
-    "thriller": "Thriller & Crime",
-    # Comics/graphic novels/manga
-    "comics": "Graphic Novels & Comics",
-    "graphic novels": "Graphic Novels & Comics",
-    "graphic novel": "Graphic Novels & Comics",
-    "manga": "Graphic Novels & Comics",
-    # Horror/paranormal
-    "paranormal": "Horror",
-    # Romance variants
-    "chick lit": "Romance",
-    # Religion/spiritual
-    "christian": "Religion & Spirituality",
-    "spirituality": "Religion & Spirituality",
-    "religion": "Religion & Spirituality",
-    # Nonfiction spelling
-    "nonfiction": "Non-Fiction",
-    # Humor
-    "humor": "Contemporary Fiction",
-    "humor and comedy": "Contemporary Fiction",
-    "comedy": "Contemporary Fiction",
-    # Topic-style non-fiction often appearing on Goodreads
-    "travel": "Non-Fiction",
-    "sports": "Non-Fiction",
-    "music": "Non-Fiction",
-    "art": "Non-Fiction",
-    "cookbooks": "Non-Fiction",
-    # LGBTQ buckets (kept broad)
-    "gay and lesbian": "Contemporary Fiction",
-}
+
 
 # Limits to keep responses tight and useful
 MAX_USER_GENRES = 8
@@ -185,17 +147,17 @@ def _canonicalize_genre(label: str) -> Optional[str]:
     if not s:
         return None
     low = s.lower()
-    if low in GENRE_ALIASES:
-        return GENRE_ALIASES[low]
+    
     # Try canonical exact match (case-insensitive)
     for g in GENRE_TAXONOMY:
         if low == g.lower():
             return g
+    
     # Try simple contains heuristics
     contains_map = {
-        "science": "Science",
+        "science": "Science & Technology",
         "philosophy": "Philosophy",
-        "business": "Business",
+        "business": "Business & Economics",
         "history": "History",
         "memoir": "Memoir",
         "biograph": "Biography",
