@@ -50,7 +50,6 @@ GENRE_TAXONOMY: List[str] = [
     "Romance",
     "Young Adult",
     "Graphic Novels & Comics",
-    "Non-Fiction",
     "Memoir",
     "Biography",
     "History",
