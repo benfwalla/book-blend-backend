@@ -4,6 +4,7 @@ import pandas as pd
 import concurrent.futures
 from datetime import datetime, date
 import re
+import time
 from bs4 import BeautifulSoup
 
 pd.set_option('display.max_columns', None)
@@ -41,10 +42,31 @@ GOODREADS_HEADERS = {
 }
 
 
+def _get_goodreads(url, attempts=3):
+    """GET a public Goodreads page with small, bounded transient retries."""
+    last_error = None
+    for attempt in range(attempts):
+        try:
+            response = requests.get(url, headers=GOODREADS_HEADERS, timeout=(5, 20))
+            if response.status_code not in (429, 500, 502, 503, 504):
+                return response
+            last_error = requests.HTTPError(
+                f"Goodreads returned {response.status_code} for {url}",
+                response=response,
+            )
+        except (requests.Timeout, requests.ConnectionError) as error:
+            last_error = error
+
+        if attempt < attempts - 1:
+            time.sleep(0.5 * (attempt + 1))
+
+    raise last_error
+
+
 def fetch_goodreads_rss(user_id, page_num=1, shelf="all"):
     url = f"https://www.goodreads.com/review/list_rss/{user_id}?page={page_num}&shelf={shelf}"
     print(f"Fetching page {page_num}: {url}")
-    response = requests.get(url, headers=GOODREADS_HEADERS, timeout=20)
+    response = _get_goodreads(url)
     if response.status_code == 404:
         raise GoodreadsShelfFeedUnavailable(
             "Goodreads has retired its public shelf feeds, so new blends are temporarily unavailable."
@@ -84,7 +106,13 @@ def _make_book_row(book_id, title, author, link, image, shelf, read_year=None, u
 def _fetch_year_in_books(user_id, year):
     """Fetch books Goodreads exposes on a public Year in Books page."""
     url = f"https://www.goodreads.com/user/year_in_books/{year}/{user_id}"
-    response = requests.get(url, headers=GOODREADS_HEADERS, timeout=20)
+    try:
+        response = _get_goodreads(url)
+    except requests.RequestException as error:
+        # A single missing year should not discard every other year we could
+        # successfully reconstruct for the user.
+        print(f"Skipping Goodreads Year in Books {year} for {user_id}: {error}")
+        return []
     # Goodreads returns 404 when a user has no public Year in Books page for
     # a particular year. That is an empty year, not a failed user scrape.
     if response.status_code == 404:
@@ -121,7 +149,7 @@ def _fetch_year_in_books(user_id, year):
 def _fetch_profile_books(user_id):
     """Fetch favorite/read and currently-reading books from a public profile."""
     url = f"https://www.goodreads.com/user/show/{user_id}"
-    response = requests.get(url, headers=GOODREADS_HEADERS, timeout=20)
+    response = _get_goodreads(url)
     response.raise_for_status()
     soup = BeautifulSoup(response.text, "html.parser")
     books = []
@@ -176,7 +204,9 @@ def fetch_users_books_from_public_pages(user_id, shelf="all"):
     books = []
     if shelf in ("all", "read"):
         years = range(2007, datetime.now().year + 1)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        # Keep concurrency conservative: two users are scraped in parallel by
+        # blend.py, so this still permits eight simultaneous Goodreads calls.
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
             for year_books in executor.map(lambda year: _fetch_year_in_books(user_id, year), years):
                 books.extend(year_books)
 
@@ -263,7 +293,7 @@ def fetch_users_books(user_id, shelf="all", return_type="df"):
 
             all_dfs.append(df)
             page += 1
-    except GoodreadsShelfFeedUnavailable:
+    except (GoodreadsShelfFeedUnavailable, requests.RequestException):
         public_books = fetch_users_books_from_public_pages(user_id, shelf=shelf)
         all_dfs = [pd.DataFrame(public_books, columns=BOOK_COLUMNS)]
 
