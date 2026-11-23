@@ -2,6 +2,7 @@ import requests
 import xml.etree.ElementTree as ET
 import pandas as pd
 import concurrent.futures
+import json
 from datetime import datetime, date
 import re
 import time
@@ -41,13 +42,52 @@ GOODREADS_HEADERS = {
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 }
 
+DEFAULT_SHELVES = ("read", "currently-reading", "to-read")
+WIDGET_SORTS = (
+    "date_added",
+    "date_read",
+    "title",
+    "author",
+    "rating",
+    "avg_rating",
+    "num_ratings",
+    "num_pages",
+    "date_pub",
+    "position",
+    "cover",
+    "year_pub",
+    "date_pub_edition",
+    "date_started",
+    "date_updated",
+    "recommender",
+    "review",
+    "read_count",
+    "votes",
+    "comments",
+    "notes",
+    "isbn",
+    "isbn13",
+    "asin",
+    "format",
+    "shelves",
+    "owned",
+    "date_purchased",
+    "purchase_location",
+    "condition",
+)
 
-def _get_goodreads(url, attempts=3):
+
+def _get_goodreads(url, attempts=3, **kwargs):
     """GET a public Goodreads page with small, bounded transient retries."""
     last_error = None
     for attempt in range(attempts):
         try:
-            response = requests.get(url, headers=GOODREADS_HEADERS, timeout=(5, 20))
+            response = requests.get(
+                url,
+                headers=GOODREADS_HEADERS,
+                timeout=(5, 20),
+                **kwargs,
+            )
             if response.status_code not in (429, 500, 502, 503, 504):
                 return response
             last_error = requests.HTTPError(
@@ -75,19 +115,13 @@ def fetch_goodreads_rss(user_id, page_num=1, shelf="all"):
     return response.text
 
 
-def _split_title_author(label):
-    """Split Goodreads image labels of the form '<title> by <author>'."""
-    if " by " in label:
-        return label.rsplit(" by ", 1)
-    return label, "Unknown"
-
-
 def _make_book_row(book_id, title, author, link, image, shelf, read_year=None, user_rating=0):
+    absolute_link = link if link.startswith("http") else f"https://www.goodreads.com{link}"
     return {
         "title": title.strip(),
         "author": author.strip(),
         "user_shelves": shelf,
-        "link": f"https://www.goodreads.com{link}",
+        "link": absolute_link,
         "isbn": None,
         "average_rating": 0.0,
         "user_rating": user_rating,
@@ -103,129 +137,171 @@ def _make_book_row(book_id, title, author, link, image, shelf, read_year=None, u
     }
 
 
-def _fetch_year_in_books(user_id, year):
-    """Fetch books Goodreads exposes on a public Year in Books page."""
-    url = f"https://www.goodreads.com/user/year_in_books/{year}/{user_id}"
-    try:
-        response = _get_goodreads(url)
-    except requests.RequestException as error:
-        # A single missing year should not discard every other year we could
-        # successfully reconstruct for the user.
-        print(f"Skipping Goodreads Year in Books {year} for {user_id}: {error}")
-        return []
-    # Goodreads returns 404 when a user has no public Year in Books page for
-    # a particular year. That is an empty year, not a failed user scrape.
-    if response.status_code == 404:
-        return []
-    response.raise_for_status()
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    books = []
-    for tooltip in soup.select(".bookCovers .bookTooltip[data-resource-id]"):
-        anchor = tooltip.select_one('a[href*="/book/show/"]')
-        image = anchor.find("img") if anchor else None
-        if not anchor or not image:
-            continue
-
-        title, author = _split_title_author(image.get("alt", ""))
-        rating_container = tooltip.find_parent("span", class_="doubleSizeCover")
-        user_rating = len(rating_container.select(".readOnlyStar.full")) if rating_container else 0
-        books.append(
-            _make_book_row(
-                book_id=tooltip.get("data-resource-id"),
-                title=title,
-                author=author,
-                link=anchor.get("href"),
-                image=image.get("src", ""),
-                shelf="read",
-                read_year=year,
-                user_rating=user_rating,
-            )
-        )
-
-    return books
-
-
-def _fetch_profile_books(user_id):
-    """Fetch favorite/read and currently-reading books from a public profile."""
+def _fetch_profile_shelf_counts(user_id):
+    """Return the public profile's authoritative default-shelf counts."""
     url = f"https://www.goodreads.com/user/show/{user_id}"
     response = _get_goodreads(url)
     response.raise_for_status()
     soup = BeautifulSoup(response.text, "html.parser")
+    counts = {}
+    for anchor in soup.select('#shelves a[href*="shelf="]'):
+        shelf_match = re.search(r"[?&]shelf=([^&]+)", anchor.get("href", ""))
+        count_match = re.search(r"\(([\d,]+)\)", anchor.get_text(" ", strip=True))
+        if shelf_match and count_match:
+            counts[shelf_match.group(1)] = int(count_match.group(1).replace(",", ""))
+    return counts
+
+
+def _decode_widget_html(script):
+    """Decode the HTML string assigned to a Goodreads widget's JS variable."""
+    marker = "var widget_code = '"
+    start = script.index(marker) + len(marker)
+    end = script.index("'\n  var widget_div", start)
+    encoded = script[start:end].replace("\\/", "/").replace("\\'", "'")
+    return json.loads(f'"{encoded}"')
+
+
+def _widget_rating(item):
+    rating = 0.0
+    for image in item.select('[class^="gr_custom_rating"] img'):
+        filename = image.get("src", "").rsplit("/", 1)[-1].lower()
+        if "inactive" in filename:
+            continue
+        if "three_quarter" in filename:
+            rating += 0.75
+        elif "half" in filename:
+            rating += 0.5
+        elif "quarter" in filename:
+            rating += 0.25
+        else:
+            rating += 1.0
+    return rating
+
+
+def _fetch_shelf_widget(user_id, shelf, sort, order, cache_key=""):
+    """Fetch up to 100 books from one end of a public Goodreads shelf."""
+    url = f"https://www.goodreads.com/review/custom_widget/{user_id}.BookBlend:%20{shelf}"
+    response = _get_goodreads(
+        url,
+        params={
+            "shelf": shelf,
+            "sort": sort,
+            "order": order,
+            "num_books": 100,
+            "show_author": 1,
+            "show_cover": 1,
+            "show_rating": 1,
+            "show_review": 0,
+            "show_tags": 0,
+            "show_title": 1,
+            "cover_size": "small",
+            "widget_id": f"bookblend-{shelf}-{sort}-{order}-{cache_key}",
+        },
+    )
+    response.raise_for_status()
+    soup = BeautifulSoup(_decode_widget_html(response.text), "html.parser")
     books = []
 
-    for anchor in soup.select('#featured_shelf a[href*="/book/show/"]'):
-        image = anchor.find("img")
-        match = re.search(r"/book/show/(\d+)", anchor.get("href", ""))
-        if not image or not match:
+    for item in soup.select('[class^="gr_custom_each_container"]'):
+        title_node = item.select_one('[class^="gr_custom_title"]')
+        author_node = item.select_one('[class^="gr_custom_author"] a')
+        image_node = item.select_one('[class^="gr_custom_book_container"] img')
+        review_link = item.select_one('[class^="gr_custom_title"] a')
+        if not title_node or not review_link:
             continue
-        title, author = _split_title_author(image.get("alt", ""))
-        books.append(
-            _make_book_row(
-                book_id=match.group(1),
-                title=title,
-                author=author,
-                link=anchor.get("href"),
-                image=image.get("src", ""),
-                shelf="read",
-            )
-        )
 
-    for update in soup.select("#currentlyReadingReviews .Updates"):
-        anchor = update.select_one('a[href*="/book/show/"]')
-        match = re.search(r"/book/show/(\d+)", anchor.get("href", "")) if anchor else None
-        if not anchor or not match:
+        image = image_node.get("src", "") if image_node else ""
+        book_match = re.search(r"/(\d+)\._", image)
+        review_match = re.search(r"/review/show/(\d+)", review_link.get("href", ""))
+        # Coverless books do not expose a book id in the widget. The review id
+        # is still stable and keeps the entry from being silently discarded.
+        if not book_match and not review_match:
             continue
-        title_node = update.select_one("a.bookTitle")
-        author_node = update.select_one("a.authorName")
-        image = anchor.find("img")
+        book_id = book_match.group(1) if book_match else f"review-{review_match.group(1)}"
+        link = (
+            f"/book/show/{book_id}"
+            if book_match
+            else review_link.get("href", "")
+        )
         books.append(
             _make_book_row(
-                book_id=match.group(1),
-                title=title_node.get_text(" ", strip=True) if title_node else anchor.get("title", "Unknown"),
+                book_id=book_id,
+                title=title_node.get_text(" ", strip=True),
                 author=author_node.get_text(" ", strip=True) if author_node else "Unknown",
-                link=anchor.get("href"),
-                image=image.get("src", "") if image else "",
-                shelf="currently-reading",
+                link=link,
+                image=image,
+                shelf=shelf,
+                user_rating=_widget_rating(item),
             )
         )
 
     return books
 
 
+def _fetch_complete_shelf(user_id, shelf, expected_count):
+    """Combine opposing widget sorts until the public shelf count is met."""
+    if expected_count <= 0:
+        return []
+
+    books = {}
+    for sort in WIDGET_SORTS:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            pages = executor.map(
+                lambda order: _fetch_shelf_widget(user_id, shelf, sort, order),
+                ("d", "a"),
+            )
+            for page in pages:
+                books.update((book["book_id"], book) for book in page)
+
+        if len(books) >= expected_count:
+            break
+
+    # Sort extremes cover most large shelves. A few random, cache-busted
+    # samples fill records that tie across every deterministic sort (for
+    # example books with no ISBN, date, rating, or review metadata).
+    random_attempts = min(20, max(4, (expected_count + 99) // 100))
+    for attempt in range(random_attempts):
+        if len(books) >= expected_count:
+            break
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            pages = executor.map(
+                lambda order: _fetch_shelf_widget(
+                    user_id,
+                    shelf,
+                    "random",
+                    order,
+                    cache_key=str(attempt),
+                ),
+                ("d", "a"),
+            )
+            for page in pages:
+                books.update((book["book_id"], book) for book in page)
+
+    if len(books) < expected_count:
+        raise GoodreadsShelfFeedUnavailable(
+            f"Goodreads exposed only {len(books)} of {expected_count} books "
+            f"on the public {shelf} shelf for user {user_id}."
+        )
+    return list(books.values())
+
+
 def fetch_users_books_from_public_pages(user_id, shelf="all"):
-    """Reconstruct public reading history after Goodreads retired shelf RSS.
-
-    Year in Books pages expose dated read books, while the profile exposes
-    favorites and currently-reading titles. Goodreads no longer exposes the
-    complete to-read shelf to signed-out users, so this is intentionally a
-    best-effort public dataset.
-    """
+    """Fetch complete public shelves through Goodreads' embeddable widgets."""
+    counts = _fetch_profile_shelf_counts(user_id)
+    if not counts:
+        raise GoodreadsShelfFeedUnavailable(
+            f"Goodreads did not expose public shelf counts for user {user_id}."
+        )
+    shelves = DEFAULT_SHELVES if shelf == "all" else (shelf,)
     books = []
-    if shelf in ("all", "read"):
-        years = range(2007, datetime.now().year + 1)
-        # Keep concurrency conservative: two users are scraped in parallel by
-        # blend.py, so this still permits eight simultaneous Goodreads calls.
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-            for year_books in executor.map(lambda year: _fetch_year_in_books(user_id, year), years):
-                books.extend(year_books)
 
-    profile_books = _fetch_profile_books(user_id)
-    if shelf == "all":
-        books.extend(profile_books)
-    elif shelf == "read":
-        books.extend(book for book in profile_books if book["user_shelves"] == "read")
-    elif shelf == "currently-reading":
-        books.extend(book for book in profile_books if book["user_shelves"] == "currently-reading")
+    # A blend already fetches two users in parallel. Process shelves in order
+    # while each shelf fetches its two ends concurrently, limiting a blend to
+    # four simultaneous Goodreads requests.
+    for name in shelves:
+        books.extend(_fetch_complete_shelf(user_id, name, counts.get(name, 0)))
 
-    # Prefer an explicit currently-reading profile entry over an older read
-    # entry, and otherwise keep the richer Year in Books record.
-    deduped = {}
-    for book in books:
-        existing = deduped.get(book["book_id"])
-        if not existing or book["user_shelves"] == "currently-reading":
-            deduped[book["book_id"]] = book
-    return list(deduped.values())
+    return books
 
 
 def parse_rss(xml_data):
