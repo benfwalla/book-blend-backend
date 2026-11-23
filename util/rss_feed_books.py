@@ -8,6 +8,8 @@ import re
 import time
 from bs4 import BeautifulSoup
 
+from util.goodreads_images import high_resolution_goodreads_image
+
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 pd.set_option('display.width', None)
@@ -117,6 +119,7 @@ def fetch_goodreads_rss(user_id, page_num=1, shelf="all"):
 
 def _make_book_row(book_id, title, author, link, image, shelf, read_year=None, user_rating=0):
     absolute_link = link if link.startswith("http") else f"https://www.goodreads.com{link}"
+    image = high_resolution_goodreads_image(image)
     return {
         "title": title.strip(),
         "author": author.strip(),
@@ -324,9 +327,9 @@ def parse_rss(xml_data):
             "book_id": item.findtext("book_id"),
             "num_pages": None,
             "book_published": int(item.findtext("book_published")) if item.findtext("book_published") else None,
-            "image_small": item.findtext("book_small_image_url"),
-            "image_medium": item.findtext("book_medium_image_url"),
-            "image_large": item.findtext("book_large_image_url")
+            "image_small": high_resolution_goodreads_image(item.findtext("book_small_image_url")),
+            "image_medium": high_resolution_goodreads_image(item.findtext("book_medium_image_url")),
+            "image_large": high_resolution_goodreads_image(item.findtext("book_large_image_url"))
         }
 
         book_elem = item.find("book")

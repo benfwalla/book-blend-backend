@@ -1,6 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
 
+from util.goodreads_images import high_resolution_goodreads_image
+
 def get_goodreads_user_info(user_id=None, username=None):
     if not user_id and not username:
         raise ValueError("Either user_id or username must be provided")
@@ -42,7 +44,7 @@ def get_goodreads_user_info(user_id=None, username=None):
     # Get image from og:image
     og_image = soup.find("meta", property="og:image")
     if og_image:
-        user_info["image_url"] = og_image.get("content", "")
+        user_info["image_url"] = high_resolution_goodreads_image(og_image.get("content", ""))
     
     # Get book count from og:description
     og_description = soup.find("meta", property="og:description")
@@ -96,7 +98,7 @@ def get_goodreads_user_info(user_id=None, username=None):
 
         friends.append({
             "name": name,
-            "image_url": img_tag["src"],
+            "image_url": high_resolution_goodreads_image(img_tag["src"]),
             "id": friend_user_id,
             "profile_url": base_url + profile_path,
             "book_count": book_count
@@ -115,7 +117,7 @@ def get_goodreads_user_info(user_id=None, username=None):
 
         friends.append({
             "name": title.strip(),
-            "image_url": img_tag["src"],
+            "image_url": high_resolution_goodreads_image(img_tag["src"]),
             "id": followed_user_id,
             "profile_url": base_url + profile_path,
             "book_count": ""
