@@ -2,7 +2,7 @@
 name = "book-blend-backend"
 version = "0.1.0"
 description = "Add your description here"
-requires-python = ">=3.13"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "bs4>=0.0.2",
     "certifi>=2025.1.31",
