@@ -574,7 +574,11 @@ def blend_two_users(user_id1, user_id2, shelf="all", include_books=False):
     preliminary = u1_status != "ok" or u2_status != "ok"
 
     # If both users are very sparse, skip AI to save latency/cost
-    skip_ai = (u1_status == "low" and u2_status == "low")
+    skip_ai = (
+        u1_total == 0
+        or u2_total == 0
+        or (u1_status == "low" and u2_status == "low")
+    )
 
     if skip_ai:
         ai_insights = {"skipped": True, "reason": "insufficient_data"}

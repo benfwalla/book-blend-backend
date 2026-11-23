@@ -1,7 +1,7 @@
 import math
 from fastapi import FastAPI, Query
 from fastapi.responses import JSONResponse
-from util.rss_feed_books import fetch_users_books
+from util.rss_feed_books import GoodreadsShelfFeedUnavailable, fetch_users_books
 from util.user_info import get_goodreads_user_info
 from util.blend import blend_two_users
 from docs.generate_docs import generate_openapi_schema  # centralized in docs/
@@ -84,6 +84,15 @@ def get_books(
         raw_data = fetch_users_books(user_id=user_id, shelf=shelf, return_type='json')
         sanitized = [{k: sanitize(v) for k, v in row.items()} for row in raw_data]
         return JSONResponse(content=sanitized)
+    except GoodreadsShelfFeedUnavailable as e:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": str(e),
+                "error_type": "goodreads_feed_unavailable",
+                "user_friendly": True,
+            },
+        )
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
@@ -325,6 +334,15 @@ def get_blend(
     user_id2: str = Query(..., description="The Goodreads user ID for the second user.")
 ) -> JSONResponse:
     try:
+        if not user_id1.isdigit() or not user_id2.isdigit():
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": "user_id1 and user_id2 must be numeric Goodreads user IDs",
+                    "error_type": "invalid_user_id",
+                },
+            )
+
         raw_data = blend_two_users(user_id1=user_id1, user_id2=user_id2, shelf='all', include_books=False)
 
         def sanitize_nested(obj):
@@ -336,6 +354,15 @@ def get_blend(
 
         sanitized = sanitize_nested(raw_data)
         return JSONResponse(content=sanitized)
+    except GoodreadsShelfFeedUnavailable as e:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": str(e),
+                "error_type": "goodreads_feed_unavailable",
+                "user_friendly": True,
+            },
+        )
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 

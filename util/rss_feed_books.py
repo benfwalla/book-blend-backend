@@ -9,6 +9,29 @@ pd.set_option('display.max_rows', None)
 pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
 
+BOOK_COLUMNS = [
+    "title",
+    "author",
+    "user_shelves",
+    "link",
+    "isbn",
+    "average_rating",
+    "user_rating",
+    "user_review",
+    "read_at",
+    "date_added",
+    "book_id",
+    "num_pages",
+    "book_published",
+    "image_small",
+    "image_medium",
+    "image_large",
+]
+
+
+class GoodreadsShelfFeedUnavailable(Exception):
+    """Raised when Goodreads' public shelf RSS feed is unavailable."""
+
 
 def fetch_goodreads_rss(user_id, page_num=1, shelf="all"):
     url = f"https://www.goodreads.com/review/list_rss/{user_id}?page={page_num}&shelf={shelf}"
@@ -17,6 +40,10 @@ def fetch_goodreads_rss(user_id, page_num=1, shelf="all"):
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
     }
     response = requests.get(url, headers=headers)
+    if response.status_code == 404:
+        raise GoodreadsShelfFeedUnavailable(
+            "Goodreads has retired its public shelf feeds, so new blends are temporarily unavailable."
+        )
     response.raise_for_status()
     return response.text
 
@@ -55,7 +82,10 @@ def parse_rss(xml_data):
 
         rows.append(row)
 
-    return pd.DataFrame(rows)
+    # Preserve the expected schema for users with an empty or private shelf.
+    # Downstream blend calculations can operate on an empty DataFrame, but not
+    # on one with no columns at all.
+    return pd.DataFrame(rows, columns=BOOK_COLUMNS)
 
 
 def to_date(rss_datetime):
