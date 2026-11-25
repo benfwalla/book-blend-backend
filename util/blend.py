@@ -533,6 +533,7 @@ def blend_two_users(user_id1, user_id2, shelf="all", include_books=False):
     
     # Combine results into a single JSON output with restructured format
     combined_results = {
+        "data_version": 2,
         "users": {
             user_id1: {
                 "id": user_id1,

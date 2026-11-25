@@ -9,6 +9,7 @@ import time
 from bs4 import BeautifulSoup
 
 from util.goodreads_images import high_resolution_goodreads_image
+from util.goodreads_graphql import enrich_books
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -32,6 +33,7 @@ BOOK_COLUMNS = [
     "image_small",
     "image_medium",
     "image_large",
+    "genres",
 ]
 
 
@@ -137,6 +139,7 @@ def _make_book_row(book_id, title, author, link, image, shelf, read_year=None, u
         "image_small": image,
         "image_medium": image,
         "image_large": image,
+        "genres": [],
     }
 
 
@@ -304,6 +307,13 @@ def fetch_users_books_from_public_pages(user_id, shelf="all"):
     for name in shelves:
         books.extend(_fetch_complete_shelf(user_id, name, counts.get(name, 0)))
 
+    try:
+        enrich_books(books)
+    except Exception as error:
+        # Shelf completeness is more important than optional enrichment. The
+        # base books still produce a valid blend if Goodreads rotates this API.
+        print(f"Goodreads metadata enrichment failed for user {user_id}: {error}")
+
     return books
 
 
@@ -329,7 +339,8 @@ def parse_rss(xml_data):
             "book_published": int(item.findtext("book_published")) if item.findtext("book_published") else None,
             "image_small": high_resolution_goodreads_image(item.findtext("book_small_image_url")),
             "image_medium": high_resolution_goodreads_image(item.findtext("book_medium_image_url")),
-            "image_large": high_resolution_goodreads_image(item.findtext("book_large_image_url"))
+            "image_large": high_resolution_goodreads_image(item.findtext("book_large_image_url")),
+            "genres": [],
         }
 
         book_elem = item.find("book")

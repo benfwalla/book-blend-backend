@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from util.goodreads_images import high_resolution_goodreads_image
+from util.goodreads_graphql import fetch_all_friends
 
 def get_goodreads_user_info(user_id=None, username=None):
     if not user_id and not username:
@@ -71,8 +72,9 @@ def get_goodreads_user_info(user_id=None, username=None):
                 user_info["id"] = user_id_part
                 actual_user_id = user_id_part
 
-    # Parse friends
-    friends = []
+    # Parse the profile previews as a fallback and to retain followed users,
+    # which Goodreads exposes separately from the complete friend graph.
+    profile_connections = []
 
     # Parse friends
     for div in soup.select(".bigBoxContent.containerWithHeaderContent > div"):
@@ -96,12 +98,13 @@ def get_goodreads_user_info(user_id=None, username=None):
                 if "books" in part:
                     book_count = part.replace(" books", "").strip()
 
-        friends.append({
+        profile_connections.append({
             "name": name,
             "image_url": high_resolution_goodreads_image(img_tag["src"]),
             "id": friend_user_id,
             "profile_url": base_url + profile_path,
-            "book_count": book_count
+            "book_count": book_count,
+            "connection_type": "profile_connection",
         })
 
     # Parse followed users (no book count)
@@ -115,13 +118,30 @@ def get_goodreads_user_info(user_id=None, username=None):
 
         followed_user_id = profile_path.split("/")[-1].split("-")[0]
 
-        friends.append({
+        profile_connections.append({
             "name": title.strip(),
             "image_url": high_resolution_goodreads_image(img_tag["src"]),
             "id": followed_user_id,
             "profile_url": base_url + profile_path,
-            "book_count": ""
+            "book_count": "",
+            "connection_type": "following",
         })
+
+    try:
+        complete_friends = fetch_all_friends(actual_user_id)
+    except Exception as error:
+        print(f"Goodreads friend graph failed for user {actual_user_id}: {error}")
+        complete_friends = []
+
+    # GraphQL supplies every friend; the profile preview supplies followed
+    # profiles. Prefer the richer preview record when the same user appears.
+    connections_by_id = {friend["id"]: friend for friend in complete_friends}
+    for connection in profile_connections:
+        existing = connections_by_id.get(connection["id"])
+        if existing and existing.get("connection_type") == "friend":
+            connection["connection_type"] = "friend"
+        connections_by_id[connection["id"]] = connection
+    friends = list(connections_by_id.values())
 
     return {
         "user": user_info,
