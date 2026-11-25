@@ -90,7 +90,9 @@ GENRE_TAXONOMY: List[str] = [
 MAX_USER_GENRES = 8
 MAX_SHARED_GENRES = 5
 MAX_RECOMMENDATIONS = 4
-MAX_CONNECTION_ITEMS = 3
+MAX_SHARED_SIGNALS = 2
+MAX_TASTE_BRIDGES = 2
+MAX_CONVERSATION_STARTERS = 3
 
 def prepare_book_data_for_analysis(user1_books: List[Dict], user2_books: List[Dict]) -> Dict:
     """
@@ -219,9 +221,9 @@ def _sanitize_and_finalize(insights: Dict) -> Dict:
     connection = result.get("connection_insights", {}) or {}
     result["connection_insights"] = {
         "summary": str(connection.get("summary", "")).strip(),
-        "shared_signals": [str(item).strip() for item in connection.get("shared_signals", []) if str(item).strip()][:MAX_CONNECTION_ITEMS],
-        "taste_bridges": [str(item).strip() for item in connection.get("taste_bridges", []) if str(item).strip()][:MAX_CONNECTION_ITEMS],
-        "conversation_starters": [str(item).strip() for item in connection.get("conversation_starters", []) if str(item).strip()][:MAX_CONNECTION_ITEMS],
+        "shared_signals": [str(item).strip() for item in connection.get("shared_signals", []) if str(item).strip()][:MAX_SHARED_SIGNALS],
+        "taste_bridges": [str(item).strip() for item in connection.get("taste_bridges", []) if str(item).strip()][:MAX_TASTE_BRIDGES],
+        "conversation_starters": [str(item).strip() for item in connection.get("conversation_starters", []) if str(item).strip()][:MAX_CONVERSATION_STARTERS],
     }
 
     return result
@@ -249,9 +251,11 @@ You must follow these requirements exactly:
 3. Distinguish durable patterns from one-off books. Never infer demographics, politics, health, or other sensitive traits.
 4. Compare fiction vs non-fiction preferences and explain both affinities and productive differences.
 5. Recommend books based on shared interests. Cross-recommendations must come from the other user's supplied list.
-6. Make the prose warm, vivid, and concise. Avoid generic phrases such as "diverse themes," "well-crafted narratives," "expand their horizons," or "something for everyone."
+6. Make the prose warm, conversational, and economical. Prefer a sharp observation over an exhaustive explanation. Avoid generic phrases such as "diverse themes," "well-crafted narratives," "expand their horizons," or "something for everyone."
 7. Return ONLY a valid JSON object with exactly the structure defined in the "REQUIRED_OUTPUT_FORMAT".
 8. Do not include explanations outside the JSON and fill every field.
+9. Keep each reading-style summary to one sentence and at most 35 words. Keep compatibility_details to one sentence and at most 35 words.
+10. Keep the connection summary to one sentence and at most 40 words. Each connection bullet must be one sentence and at most 24 words; each conversation starter must be a short question of at most 20 words.
 
 GENRE TAXONOMY (choose only from this list; do NOT invent new labels):
 {json.dumps(GENRE_TAXONOMY, indent=2)}
@@ -276,16 +280,16 @@ REQUIRED_OUTPUT_FORMAT:
     "compatibility": "User1 strongly prefers fiction while User2 favors non-fiction. This creates an opportunity to expand each other's horizons."
   }},
   "reading_style": {{
-    "user1_summary": "Two specific sentences grounded in titles, authors, genres, ratings, eras, or length patterns.",
-    "user2_summary": "Two specific sentences grounded in titles, authors, genres, ratings, eras, or length patterns.",
+    "user1_summary": "One concise, specific sentence grounded in titles, authors, genres, ratings, eras, or length patterns.",
+    "user2_summary": "One concise, specific sentence grounded in titles, authors, genres, ratings, eras, or length patterns.",
     "compatibility_score": 0.65,
-    "compatibility_details": "A concrete two-sentence explanation of why their tastes connect and where they diverge."
+    "compatibility_details": "One concise sentence explaining where their tastes connect and diverge."
   }},
   "connection_insights": {{
-    "summary": "A 2-3 sentence, evidence-rich overview of this pair's reading chemistry.",
-    "shared_signals": ["A specific shared pattern with book or author evidence"],
-    "taste_bridges": ["A specific way one reader's library can lead the other somewhere new"],
-    "conversation_starters": ["A natural question tied to books they have actually read"]
+    "summary": "One short, evidence-rich sentence about this pair's reading chemistry.",
+    "shared_signals": ["A brief shared pattern with book or author evidence", "A second brief shared pattern"],
+    "taste_bridges": ["A brief way one reader's library can lead the other somewhere new", "A second brief bridge"],
+    "conversation_starters": ["A short question tied to books they read", "A second short question", "A third short question"]
   }},
   "book_recommendations": {{
     "for_both": ["Book Title 1 by Author Name", "Book Title 2 by Author Name"],
