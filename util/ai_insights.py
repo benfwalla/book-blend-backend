@@ -94,6 +94,17 @@ MAX_SHARED_SIGNALS = 2
 MAX_TASTE_BRIDGES = 2
 MAX_CONVERSATION_STARTERS = 3
 
+
+def _limit_words(value: Any, max_words: int) -> str:
+    """Keep generated prose compact even when the model drifts past the prompt limit."""
+    text = str(value or "").strip()
+    words = text.split()
+    if len(words) <= max_words:
+        return text
+    ending = "?" if text.endswith("?") else "…"
+    shortened = " ".join(words[:max_words]).rstrip(" ,;:.-!?—")
+    return shortened + ending
+
 def prepare_book_data_for_analysis(user1_books: List[Dict], user2_books: List[Dict]) -> Dict:
     """
     Extract and structure relevant book data for LLM analysis.
@@ -218,12 +229,20 @@ def _sanitize_and_finalize(insights: Dict) -> Dict:
         "recommendations": recs,
     }
 
+    style = result.get("reading_style", {}) or {}
+    result["reading_style"] = {
+        **style,
+        "user1_summary": _limit_words(style.get("user1_summary", ""), 40),
+        "user2_summary": _limit_words(style.get("user2_summary", ""), 40),
+        "compatibility_details": _limit_words(style.get("compatibility_details", ""), 40),
+    }
+
     connection = result.get("connection_insights", {}) or {}
     result["connection_insights"] = {
-        "summary": str(connection.get("summary", "")).strip(),
-        "shared_signals": [str(item).strip() for item in connection.get("shared_signals", []) if str(item).strip()][:MAX_SHARED_SIGNALS],
-        "taste_bridges": [str(item).strip() for item in connection.get("taste_bridges", []) if str(item).strip()][:MAX_TASTE_BRIDGES],
-        "conversation_starters": [str(item).strip() for item in connection.get("conversation_starters", []) if str(item).strip()][:MAX_CONVERSATION_STARTERS],
+        "summary": _limit_words(connection.get("summary", ""), 45),
+        "shared_signals": [_limit_words(item, 28) for item in connection.get("shared_signals", []) if str(item).strip()][:MAX_SHARED_SIGNALS],
+        "taste_bridges": [_limit_words(item, 28) for item in connection.get("taste_bridges", []) if str(item).strip()][:MAX_TASTE_BRIDGES],
+        "conversation_starters": [_limit_words(item, 24) for item in connection.get("conversation_starters", []) if str(item).strip()][:MAX_CONVERSATION_STARTERS],
     }
 
     return result
